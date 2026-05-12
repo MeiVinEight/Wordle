@@ -5,10 +5,81 @@
 		<title>Wordle</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
+		
+		<script>
+			function initTheme() {
+				const savedTheme = localStorage.getItem('theme');
+				const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				const theme = savedTheme ? savedTheme : (prefersDark ? 'dark' : 'light');
+				document.documentElement.setAttribute('data-theme', theme);
+			}
+			initTheme();
+			
+			function toggleTheme() {
+				const currentTheme = document.documentElement.getAttribute('data-theme');
+				const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+				document.documentElement.setAttribute('data-theme', newTheme);
+				localStorage.setItem('theme', newTheme);
+				updateThemeIcon(newTheme);
+			}
+			
+			function updateThemeIcon(theme) {
+				const btn = document.getElementById('theme-toggle');
+				if (btn) {
+					btn.innerText = theme === 'dark' ? '◑' : '◐';
+				}
+			}
+			
+			window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+				if (!localStorage.getItem('theme')) {
+					const newTheme = e.matches ? 'dark' : 'light';
+					document.documentElement.setAttribute('data-theme', newTheme);
+					updateThemeIcon(newTheme);
+				}
+			});
+			
+			document.addEventListener('DOMContentLoaded', () => {
+				updateThemeIcon(document.documentElement.getAttribute('data-theme'));
+			});
+		</script>
+
 		<style>
+			:root {
+				--bg-color: #FFFFFF;
+				--text-color: #000000;
+				--card-bg: #FFFFFF;
+				--border-color: #EEEEEE;
+				--shadow-color: rgba(0, 0, 0, 0.1);
+				--shadow-hover: rgba(0, 0, 0, 0.2);
+				--empty-bg: #AAAAAA;
+				--btn-bg: #FFFFFF;
+				--control-bg: #E0E0E0;
+				--win-bg: #E8F5E9;
+				--win-border: #00AA00;
+				--text-muted: #AAAAAA;
+			}
+
+			[data-theme="dark"] {
+				--bg-color: #121212;
+				--text-color: #E0E0E0;
+				--card-bg: #1E1E1E;
+				--border-color: #333333;
+				--shadow-color: rgba(0, 0, 0, 0.5);
+				--shadow-hover: rgba(0, 0, 0, 0.8);
+				--empty-bg: #444444;
+				--btn-bg: #2C2C2C;
+				--control-bg: #555555;
+				--win-bg: #1A3320;
+				--win-border: #00AA00;
+				--text-muted: #888888;
+			}
+
 			body {
 				margin: 0;
 				padding: 0;
+				background-color: var(--bg-color);
+				color: var(--text-color);
+				transition: background-color 0.3s ease, color 0.3s ease;
 			}
 			#top-container
 			{
@@ -17,6 +88,17 @@
 				font-family: Consolas, serif;
 				padding-bottom: 50px;
 			}
+			
+			.header-bar {
+				width: 100%;
+				background-color: #00AA00;
+				user-select: none;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				position: relative;
+			}
+			
 			#wordle
 			{
 				text-align: center;
@@ -26,10 +108,25 @@
 				cursor: pointer;
 				padding: 10px 0;
 			}
+			
+			#theme-toggle {
+				position: absolute;
+				right: 20px;
+				font-size: 24px;
+				cursor: pointer;
+				user-select: none;
+				color: #FFFFFF;
+				transition: opacity 0.3s;
+			}
+			#theme-toggle:hover {
+				opacity: 0.7;
+			}
+
 			.box-card
 			{
-				border: 1px solid #EEE;
-				box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+				border: 1px solid var(--border-color);
+				background-color: var(--card-bg);
+				box-shadow: 0 2px 4px 0 var(--shadow-color);
 				transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
 				margin: 10px 0 10px 0;
 				padding: 10px;
@@ -38,13 +135,14 @@
 			.box-card:hover
 			{
 				box-shadow:
-					0 2px 4px 0 rgba(0, 0, 0, 0.2),
-					0 4px 8px 0 rgba(0, 0, 0, 0.19);
+					0 2px 4px 0 var(--shadow-color),
+					0 4px 8px 0 var(--shadow-hover);
 			}
 			.button-diff
 			{
-				border: 1px solid #EEE;
-				background-color: #FFFFFF;
+				border: 1px solid var(--border-color);
+				background-color: var(--btn-bg);
+				color: var(--text-color);
 				cursor: pointer;
 				padding: 6px 12px;
 				border-radius: 5px;
@@ -56,7 +154,7 @@
 				border: 1px solid #00AA00;
 				background-color: #00AA00;
 				cursor: pointer;
-				padding: 4px 8px;
+				padding: 6px 12px;
 				border-radius: 5px;
 				color: white;
 				transition: all 0.3s ease;
@@ -79,13 +177,15 @@
 			}
 			.guess-card
 			{
-				border: 1px solid #EEE;
-				box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+				border: 1px solid var(--border-color);
+				background-color: var(--card-bg);
+				box-shadow: 0 2px 4px 0 var(--shadow-color);
 				margin: 10px auto;
 				padding: 10px;
 				width: min-content;
 				white-space: nowrap;
 				border-radius: 8px;
+				transition: all 0.3s ease;
 			}
 			.guess-card-current {
 				border: 1px solid #00AAFF;
@@ -104,8 +204,22 @@
 				display: inline-block;
 				margin-left: 5px;
 				margin-right: 5px;
-				background-color: #AAAAAA;
+				background-color: var(--empty-bg);
 				border-radius: 4px;
+				transition: background-color 0.3s ease;
+			}
+			.control-btn {
+				background-color: var(--control-bg);
+				color: var(--text-color);
+				line-height: 36px;
+				text-align: center;
+				font-size: 24px;
+				cursor: pointer;
+				user-select: none;
+				vertical-align: top;
+			}
+			.control-btn:hover {
+				opacity: 0.8;
 			}
 			.color-under
 			{
@@ -115,7 +229,8 @@
 				margin-left: 5px;
 				margin-right: 5px;
 				border-radius: 3px;
-				background-color: #AAAAAA;
+				background-color: var(--empty-bg);
+				transition: background-color 0.3s ease;
 			}
 			.color-dot
 			{
@@ -123,7 +238,8 @@
 				height: 6px;
 				display: inline-block;
 				border-radius: 3px;
-				background-color: #AAAAAA;
+				background-color: var(--empty-bg);
+				transition: background-color 0.3s ease;
 			}
 			.dot0 { margin-top: 8px; margin-left: 8px; }
 			.dot1 { margin-top: 8px; margin-left: 8px; }
@@ -137,8 +253,8 @@
 				font-size: 24px;
 				font-weight: bold;
 				margin: 10px 0;
-				border-color: #00AA00;
-				background-color: #E8F5E9;
+				border-color: var(--win-border);
+				background-color: var(--win-bg);
 				animation: pop 0.5s ease;
 			}
 
@@ -211,13 +327,13 @@
 					return;
 				if (step)
 				{
-					alert("Game is start, please reset game to switch difficulty.");
+					alert("Game has already started, please reset game to switch difficulty.");
 					return;
 				}
 				difficulty = hard;
 				if (difficulty)
 				{
-					console.log("Difficulty:Hard");
+					console.log("Difficulty: Hard");
 					document.getElementById("button-easy").className = "button-diff";
 					document.getElementById("button-hard").className = "button-diff-select";
 					document.getElementById("introduce-easy").style.display = "none";
@@ -225,7 +341,7 @@
 				}
 				else
 				{
-					console.log("Difficulty:Easy");
+					console.log("Difficulty: Easy");
 					document.getElementById("button-easy").className = "button-diff-select";
 					document.getElementById("button-hard").className = "button-diff";
 					document.getElementById("introduce-hard").style.display = "none";
@@ -267,7 +383,7 @@
 					if (status === 0)
 						return;
 					const colorList = guessCard.children[0].children[0].children;
-					colorList[--status].style.backgroundColor = "#AAAAAA";
+					colorList[--status].style.backgroundColor = ""; 
 				}
 				else if (type === 9)
 				{
@@ -294,7 +410,7 @@
 							} else if (answer.includes(guess[i])) {
 										colorList[i].style.backgroundColor = "#FFAA00";
 							} else {
-								colorList[i].style.backgroundColor = "#AAAAAA";
+								colorList[i].style.backgroundColor = "";
 							}
 						}
 					}
@@ -327,8 +443,9 @@
 		<canvas id="fireworksCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; display:none;"></canvas>
 
 		<div id="top-container">
-			<div style="width: 100%; background-color: #00AA00; user-select: none;">
-				<h1 id="wordle" onclick="clickWordle()">WORDLE</h1>
+			<div class="header-bar">
+				<h1 id="wordle" onclick="clickWordle()" title="点击重置">WORDLE</h1>
+				<div id="theme-toggle" onclick="toggleTheme()" title="切换深色/浅色模式">◐</div>
 			</div>
 			
 			<div class="box-card">
@@ -351,15 +468,15 @@
 							<span class="container-color-block" style="margin-top: 5px">
 								<span class="color-under" style="background-color: #00AA00"></span>
 								<span class="color-under" style="background-color: #FFAA00"></span>
-								<span class="color-under" style="background-color: #AAAAAA"></span>
-								<span class="color-under" style="background-color: #AAAAAA"></span>
+								<span class="color-under"></span>
+								<span class="color-under"></span>
 							</span>
 						</span>
 						<span style="display: flex;">
-							<span class="color-dot dot0" style="background-color: #AAAAAA"></span>
-							<span class="color-dot dot1" style="background-color: #AAAAAA"></span>
-							<span class="color-dot dot2" style="background-color: #AAAAAA"></span>
-							<span class="color-dot dot3" style="background-color: #AAAAAA"></span>
+							<span class="color-dot dot0"></span>
+							<span class="color-dot dot1"></span>
+							<span class="color-dot dot2"></span>
+							<span class="color-dot dot3"></span>
 						</span>
 					</div>
 					颜色块下方的颜色条表示此颜色的猜测结果：
@@ -368,7 +485,7 @@
 					<br/>
 					<span style="color: #FFAA00; font-weight: bold;">橙色</span>表示颜色正确但位置不正确。
 					<br/>
-					<span style="color: #AAAAAA; font-weight: bold;">灰色</span>表示颜色不正确。
+					<span style="color: var(--text-muted); font-weight: bold;">灰色</span>表示颜色不正确。
 				</div>
 				<div id="introduce-hard" style="display: none; margin-top: 10px; line-height: 1.6;">
 					系统从八个颜色中随机选择四个不同的颜色，你需要猜出系统选择的颜色和顺序。<br/>
@@ -383,17 +500,17 @@
 								<span class="color-block" style="background-color: #AA0000"></span>
 							</span>
 							<span class="container-color-block" style="margin-top: 5px">
-								<span class="color-under" style="background-color: #AAAAAA"></span>
-								<span class="color-under" style="background-color: #AAAAAA"></span>
-								<span class="color-under" style="background-color: #AAAAAA"></span>
-								<span class="color-under" style="background-color: #AAAAAA"></span>
+								<span class="color-under"></span>
+								<span class="color-under"></span>
+								<span class="color-under"></span>
+								<span class="color-under"></span>
 							</span>
 						</span>
 						<span style="display: flex;">
 							<span class="color-dot dot0" style="background-color: #00AA00"></span>
 							<span class="color-dot dot1" style="background-color: #FFAA00"></span>
-							<span class="color-dot dot2" style="background-color: #AAAAAA"></span>
-							<span class="color-dot dot3" style="background-color: #AAAAAA"></span>
+							<span class="color-dot dot2"></span>
+							<span class="color-dot dot3"></span>
 						</span>
 					</div>
 					颜色块右方的颜色点表示本次猜测的数量结果：
@@ -402,7 +519,7 @@
 					<br/>
 					<span style="color: #FFAA00; font-weight: bold;">橙色</span>表示颜色正确但位置不正确。
 					<br/>
-					<span style="color: #AAAAAA; font-weight: bold;">灰色</span>表示颜色不正确。
+					<span style="color: var(--text-muted); font-weight: bold;">灰色</span>表示颜色不正确。
 					<br/>
 					<span style="font-weight: bold;">上述例子仅表示猜对了两个颜色，其中一个位置正确。</span>
 				</div>
@@ -420,12 +537,8 @@
 					<span class="color-block" style="background-color: #FF00AA; cursor: pointer;" onclick="colorSelect(5)"></span>
 					<span class="color-block" style="background-color: #00AAAA; cursor: pointer;" onclick="colorSelect(6)"></span>
 					<span class="color-block" style="background-color: #00AAFF; cursor: pointer;" onclick="colorSelect(7)"></span>
-					<span class="color-block" style="text-align: center; font-size: 28px; cursor: pointer; user-select: none;" onclick="colorSelect(8)">
-						&larr;
-					</span>
-					<span class="color-block" style="text-align: center; font-size: 28px; cursor: pointer; user-select: none;" onclick="colorSelect(9)">
-						&crarr;
-					</span>
+					<span class="color-block control-btn" onclick="colorSelect(8)">&larr;</span>
+					<span class="color-block control-btn" onclick="colorSelect(9)">&crarr;</span>
 				</div>
 				<div id="guess-card-template" class="guess-card" style="display: none;">
 					<span style="display: inline-block">
