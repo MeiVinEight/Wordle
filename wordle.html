@@ -87,6 +87,10 @@
 				white-space: nowrap;
 				border-radius: 8px;
 			}
+			.guess-card-current {
+				border: 1px solid #00AAFF;
+				box-shadow: 0 2px 8px 0 rgba(0, 170, 255, 0.3);
+			}
 			.container-color-block
 			{
 				display: block flex;
@@ -164,7 +168,8 @@
 			function nextGuess()
 			{
 				const newGuessCard = document.getElementById("guess-card-template").cloneNode(true);
-				newGuessCard.id = "guess-card-current";
+				newGuessCard.removeAttribute("id"); 
+				newGuessCard.classList.add("guess-card-current");
 				newGuessCard.style.display = "flex";
 				document.getElementById("guess-container").appendChild(newGuessCard);
 			}
@@ -192,8 +197,8 @@
 				document.getElementById("win-message").style.display = "none";
 				
 				const container = document.getElementById("guess-container");
-				while (container.children[2] !== undefined)
-					container.removeChild(container.children[2]);
+				const oldGuesses = container.querySelectorAll(".guess-card:not(#guess-card-template)");
+				oldGuesses.forEach(el => el.remove());
 				
 				step = 0;
 				status = 0;
@@ -240,7 +245,9 @@
 			{
 				if (isGameOver) return;
 
-				const guessCard = document.getElementById("guess-card-current");
+				const guessCard = document.querySelector(".guess-card-current");
+				if (!guessCard) return;
+
 				if (type >= 0 && type <= 7)
 				{
 					if (status >= 4)
@@ -277,7 +284,7 @@
 						}
 					}
 
-					if (difficulty === 0) // Easy模式：原位显示结果
+					if (difficulty === 0) // Easy Mode
 					{
 						const colorList = guessCard.children[0].children[1].children;
 						for (let i = 0; i < 4; i++)
@@ -300,7 +307,7 @@
 					}
 
 					status = 0;
-					guessCard.id = "";
+					guessCard.classList.remove("guess-card-current");
 					step++;
 
 					if (greens === 4) {
@@ -327,7 +334,6 @@
 			<div class="box-card">
 				<button id="button-easy" type="button" class="button-diff-select" onclick="diffButton(0)">EASY / 简单</button>
 				<button id="button-hard" type="button" class="button-diff" onclick="diffButton(1)">HARD / 困难</button>
-				<!-- 新增的重置按钮 -->
 				<button id="button-reset" type="button" class="button-reset" onclick="clickWordle()">RESET / 重置游戏</button>
 				<br/>
 				<div id="introduce-easy" style="margin-top: 10px; line-height: 1.6;">
