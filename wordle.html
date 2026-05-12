@@ -6,11 +6,16 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<style>
+			body {
+				margin: 0;
+				padding: 0;
+			}
 			#top-container
 			{
 				width: 720px;
 				margin: 0 auto;
 				font-family: Consolas, serif;
+				padding-bottom: 50px;
 			}
 			#wordle
 			{
@@ -19,6 +24,7 @@
 				margin: 0;
 				font-size: 32px;
 				cursor: pointer;
+				padding: 10px 0;
 			}
 			.box-card
 			{
@@ -27,6 +33,7 @@
 				transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
 				margin: 10px 0 10px 0;
 				padding: 10px;
+				border-radius: 8px;
 			}
 			.box-card:hover
 			{
@@ -39,28 +46,46 @@
 				border: 1px solid #EEE;
 				background-color: #FFFFFF;
 				cursor: pointer;
-				padding: 4px 8px;
+				padding: 6px 12px;
 				border-radius: 5px;
-				transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+				transition: all 0.3s ease;
+				font-weight: bold;
 			}
 			.button-diff-select
 			{
-				border: 1px solid #EEE;
+				border: 1px solid #00AA00;
 				background-color: #00AA00;
 				cursor: pointer;
 				padding: 4px 8px;
 				border-radius: 5px;
 				color: white;
-				transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+				transition: all 0.3s ease;
+				font-weight: bold;
+			}
+			.button-reset 
+			{
+				border: 1px solid #e74c3c;
+				background-color: #e74c3c;
+				cursor: pointer;
+				padding: 6px 12px;
+				border-radius: 5px;
+				color: white;
+				transition: all 0.3s ease;
+				font-weight: bold;
+				margin-left: 20px;
+			}
+			.button-reset:hover {
+				background-color: #c0392b;
 			}
 			.guess-card
 			{
 				border: 1px solid #EEE;
-				box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+				box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
 				margin: 10px auto;
 				padding: 10px;
 				width: min-content;
 				white-space: nowrap;
+				border-radius: 8px;
 			}
 			.container-color-block
 			{
@@ -76,6 +101,7 @@
 				margin-left: 5px;
 				margin-right: 5px;
 				background-color: #AAAAAA;
+				border-radius: 4px;
 			}
 			.color-under
 			{
@@ -95,25 +121,26 @@
 				border-radius: 3px;
 				background-color: #AAAAAA;
 			}
-			.dot0
-			{
-				margin-top: 8px;
-				margin-left: 8px;
+			.dot0 { margin-top: 8px; margin-left: 8px; }
+			.dot1 { margin-top: 8px; margin-left: 8px; }
+			.dot2 { margin-top: 22px; margin-left: -20px; }
+			.dot3 { margin-top: 22px; margin-left: 8px; }
+			
+			#win-message {
+				display: none;
+				text-align: center;
+				color: #00AA00;
+				font-size: 24px;
+				font-weight: bold;
+				margin: 10px 0;
+				border-color: #00AA00;
+				background-color: #E8F5E9;
+				animation: pop 0.5s ease;
 			}
-			.dot1
-			{
-				margin-top: 8px;
-				margin-left: 8px;
-			}
-			.dot2
-			{
-				margin-top: 22px;
-				margin-left: -20px;
-			}
-			.dot3
-			{
-				margin-top: 22px;
-				margin-left: 8px;
+
+			@keyframes pop {
+				0% { transform: scale(0.8); opacity: 0; }
+				100% { transform: scale(1); opacity: 1; }
 			}
 		</style>
 		<script>
@@ -130,6 +157,8 @@
 			let step = 0;
 			let difficulty = 0;
 			let status = 0;
+			let isGameOver = false;
+
 			const answer = [0, 0, 0, 0];
 			const guess = [0, 0, 0, 0];
 			function nextGuess()
@@ -153,16 +182,23 @@
 					if (succ)
 						answer[i++] = idx;
 				}
+				console.log("Answer array:", answer); 
 			}
 			function clickWordle()
 			{
-				console.log("Wordle");
+				console.log("Init or Reset Wordle Game");
+				isGameOver = false;
+				stopFireworks();
+				document.getElementById("win-message").style.display = "none";
+				
 				const container = document.getElementById("guess-container");
 				while (container.children[2] !== undefined)
 					container.removeChild(container.children[2]);
+				
+				step = 0;
+				status = 0;
 				nextGuess();
 				newAnswer();
-				step = 0;
 			}
 			function diffButton(hard)
 			{
@@ -170,13 +206,13 @@
 					return;
 				if (step)
 				{
-					alert("Game is start");
+					alert("Game is start, please reset game to switch difficulty.");
 					return;
 				}
 				difficulty = hard;
 				if (difficulty)
 				{
-					console.log("hard");
+					console.log("Difficulty:Hard");
 					document.getElementById("button-easy").className = "button-diff";
 					document.getElementById("button-hard").className = "button-diff-select";
 					document.getElementById("introduce-easy").style.display = "none";
@@ -184,15 +220,26 @@
 				}
 				else
 				{
-					console.log("easy");
+					console.log("Difficulty:Easy");
 					document.getElementById("button-easy").className = "button-diff-select";
 					document.getElementById("button-hard").className = "button-diff";
 					document.getElementById("introduce-hard").style.display = "none";
 					document.getElementById("introduce-easy").style.display = "block";
 				}
 			}
+
+			function winGame() {
+				isGameOver = true;
+				const winMsg = document.getElementById("win-message");
+				winMsg.innerText = `恭喜通关！您仅用了 ${step} 步猜出答案！`;
+				winMsg.style.display = "block";
+				startFireworks();
+			}
+
 			function colorSelect(type)
 			{
+				if (isGameOver) return;
+
 				const guessCard = document.getElementById("guess-card-current");
 				if (type >= 0 && type <= 7)
 				{
@@ -217,70 +264,78 @@
 				}
 				else if (type === 9)
 				{
-					if (status !== 4)
-						return;
-					if (difficulty === 0)
+					if (status !== 4) return;
+
+					let greens = 0;
+					let oranges = 0;
+
+					for (let i = 0; i < 4; i++) {
+						if (guess[i] === answer[i]) {
+							greens++;
+						} else if (answer.includes(guess[i])) {
+							oranges++;
+						}
+					}
+
+					if (difficulty === 0) // Easy模式：原位显示结果
 					{
 						const colorList = guessCard.children[0].children[1].children;
 						for (let i = 0; i < 4; i++)
 						{
-							for (let j = 0; j < 4; j++)
-							{
-								if (guess[i] === answer[j])
-								{
-									if (i === j)
+							if (guess[i] === answer[i]) {
 										colorList[i].style.backgroundColor = "#00AA00";
-									else
+							} else if (answer.includes(guess[i])) {
 										colorList[i].style.backgroundColor = "#FFAA00";
-									break;
-								}
+							} else {
+								colorList[i].style.backgroundColor = "#AAAAAA";
 							}
 						}
 					}
 					else
 					{
 						const colorList = guessCard.children[1].children;
-						let a = 0;
-						let b = 0;
-						for (let i = 0; i < 4; i++)
-						{
-							for (let j = 0; j < 4; j++)
-							{
-								if (guess[i] === answer[j])
-								{
-									colorList[b++].style.backgroundColor = "#FFAA00";
-									if (i === j)
-										colorList[a++].style.backgroundColor = "#00AA00";
-									break;
-								}
-							}
-						}
+						let idx = 0;
+						for (let i = 0; i < greens; i++) colorList[idx++].style.backgroundColor = "#00AA00";
+						for (let i = 0; i < oranges; i++) colorList[idx++].style.backgroundColor = "#FFAA00";
 					}
+
 					status = 0;
 					guessCard.id = "";
 					nextGuess();
 					step++;
+
+					if (greens === 4) {
+						winGame();
+					} else {
+						nextGuess();
+					}
+
+					setTimeout(() => {
+						window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+					}, 100);
 				}
 			}
 		</script>
 	</head>
 	<body>
+		<canvas id="fireworksCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; display:none;"></canvas>
+
 		<div id="top-container">
 			<div style="width: 100%; background-color: #00AA00; user-select: none;">
 				<h1 id="wordle" onclick="clickWordle()">WORDLE</h1>
 			</div>
+			
 			<div class="box-card">
-				<button id="button-easy" type="button" class="button-diff-select" onclick="diffButton(0)">EASY</button>
-				<button id="button-hard" type="button" class="button-diff" onclick="diffButton(1)">HARD</button>
+				<button id="button-easy" type="button" class="button-diff-select" onclick="diffButton(0)">EASY / 简单</button>
+				<button id="button-hard" type="button" class="button-diff" onclick="diffButton(1)">HARD / 困难</button>
+				<!-- 新增的重置按钮 -->
+				<button id="button-reset" type="button" class="button-reset" onclick="clickWordle()">RESET / 重置游戏</button>
 				<br/>
-				<div id="introduce-easy">
-					系统从八个颜色中随机选择四个不同的颜色，你需要猜出系统选择的颜色和顺序。
-					<br/>
-					你的每次猜测必须是按顺序给出的四种颜色。
-					<br/>
-					给出猜测后你会得到本次猜测的结果：哪些颜色存在，但位置不正确，哪些颜色位置正确。
-					<br/>
-					<div class="guess-card" style="display: flex; margin: 0;">
+				<div id="introduce-easy" style="margin-top: 10px; line-height: 1.6;">
+					系统从八个颜色中随机选择四个不同的颜色，你需要猜出系统选择的颜色和顺序。<br/>
+					你的每次猜测必须是按顺序给出的四种颜色。<br/>
+					给出猜测后你会得到本次猜测的结果：哪些颜色存在，但位置不正确，哪些颜色位置正确。<br/>
+					<div class="guess-card" style="display: flex; margin: 10px 0;">
 						<span style="display: inline-block">
 							<span class="container-color-block">
 								<span class="color-block" style="background-color: #AA00AA"></span>
@@ -310,14 +365,11 @@
 					<br/>
 					<span style="color: #AAAAAA; font-weight: bold;">灰色</span>表示颜色不正确。
 				</div>
-				<div id="introduce-hard" style="display: none">
-					系统从八个颜色中随机选择四个不同的颜色，你需要猜出系统选择的颜色和顺序。
-					<br/>
-					你的每次猜测必须是按顺序给出的四种颜色。
-					<br/>
-					给出猜测后你会得到本次猜测的结果：哪些颜色存在，但位置不正确，哪些颜色位置正确。
-					<br/>
-					<div class="guess-card" style="display: flex; margin: 0;">
+				<div id="introduce-hard" style="display: none; margin-top: 10px; line-height: 1.6;">
+					系统从八个颜色中随机选择四个不同的颜色，你需要猜出系统选择的颜色和顺序。<br/>
+					你的每次猜测必须是按顺序给出的四种颜色。<br/>
+					给出猜测后你会得到本次猜测的结果：哪些颜色存在，但位置不正确，哪些颜色位置正确。<br/>
+					<div class="guess-card" style="display: flex; margin: 10px 0;">
 						<span style="display: inline-block">
 							<span class="container-color-block">
 								<span class="color-block" style="background-color: #AA00AA"></span>
@@ -350,6 +402,9 @@
 					<span style="font-weight: bold;">上述例子仅表示猜对了两个颜色，其中一个位置正确。</span>
 				</div>
 			</div>
+
+			<div id="win-message" class="box-card"></div>
+
 			<div id="guess-container" class="box-card">
 				<div style="display: block flex; margin: 0 auto; width: min-content;">
 					<span class="color-block" style="background-color: #AA0000; cursor: pointer;" onclick="colorSelect(0)"></span>
@@ -391,6 +446,89 @@
 				</div>
 			</div>
 		</div>
+
+		<script>
+			let fwCanvas, fwCtx, particles =[], fwActive = false;
+
+			function initFireworks() {
+				fwCanvas = document.getElementById('fireworksCanvas');
+				fwCtx = fwCanvas.getContext('2d');
+				window.addEventListener('resize', () => {
+					if (fwCanvas) {
+						fwCanvas.width = window.innerWidth;
+						fwCanvas.height = window.innerHeight;
+					}
+				});
+				fwCanvas.width = window.innerWidth;
+				fwCanvas.height = window.innerHeight;
+			}
+
+			function startFireworks() {
+				if (!fwCanvas) initFireworks();
+				fwCanvas.style.display = 'block';
+				fwActive = true;
+				animateFireworks();
+			}
+
+			function stopFireworks() {
+				fwActive = false;
+				if (fwCanvas) {
+					fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+					particles =[];
+					fwCanvas.style.display = 'none';
+				}
+			}
+
+			function createFirework() {
+				const x = Math.random() * fwCanvas.width;
+				const y = Math.random() * fwCanvas.height * 0.5;
+				const colors = ['#FF5252', '#FFD740', '#69F0AE', '#40C4FF', '#E040FB'];
+				const color = colors[Math.floor(Math.random() * colors.length)];
+				
+				for (let i = 0; i < 60; i++) {
+					const angle = Math.random() * Math.PI * 2;
+					const speed = Math.random() * 6 + 1;
+					particles.push({
+						x: x,
+						y: y,
+						vx: Math.cos(angle) * speed,
+						vy: Math.sin(angle) * speed,
+						life: Math.random() * 30 + 50,
+						color: color,
+						size: Math.random() * 3 + 1
+					});
+				}
+			}
+
+			function animateFireworks() {
+				if (!fwActive) return;
+				requestAnimationFrame(animateFireworks);
+				
+				fwCtx.globalCompositeOperation = 'destination-out';
+				fwCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+				fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
+				fwCtx.globalCompositeOperation = 'lighter';
+				
+				if (Math.random() < 0.05) createFirework();
+				
+				for (let i = particles.length - 1; i >= 0; i--) {
+					let p = particles[i];
+					p.x += p.vx;
+					p.y += p.vy;
+					p.vy += 0.08;
+					p.life--;
+					
+					fwCtx.fillStyle = p.color;
+					fwCtx.beginPath();
+					fwCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+					fwCtx.fill();
+					
+					if (p.life <= 0) particles.splice(i, 1);
+				}
+			}
+
+			clickWordle();
+		</script>
 	</body>
 	<script>clickWordle();</script>
 </html>
