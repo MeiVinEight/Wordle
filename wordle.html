@@ -301,7 +301,6 @@
 
 					status = 0;
 					guessCard.id = "";
-					nextGuess();
 					step++;
 
 					if (greens === 4) {
@@ -386,7 +385,7 @@
 						</span>
 						<span style="display: flex;">
 							<span class="color-dot dot0" style="background-color: #00AA00"></span>
-							<span class="color-dot dot1" style="background-color: #FFAAAA"></span>
+							<span class="color-dot dot1" style="background-color: #FFAA00"></span>
 							<span class="color-dot dot2" style="background-color: #AAAAAA"></span>
 							<span class="color-dot dot3" style="background-color: #AAAAAA"></span>
 						</span>
@@ -406,7 +405,7 @@
 			<div id="win-message" class="box-card"></div>
 
 			<div id="guess-container" class="box-card">
-				<div style="display: block flex; margin: 0 auto; width: min-content;">
+				<div style="display: block flex; margin: 0 auto; width: min-content; padding-bottom: 10px;">
 					<span class="color-block" style="background-color: #AA0000; cursor: pointer;" onclick="colorSelect(0)"></span>
 					<span class="color-block" style="background-color: #00AA00; cursor: pointer;" onclick="colorSelect(1)"></span>
 					<span class="color-block" style="background-color: #0000AA; cursor: pointer;" onclick="colorSelect(2)"></span>
@@ -415,10 +414,10 @@
 					<span class="color-block" style="background-color: #FF00AA; cursor: pointer;" onclick="colorSelect(5)"></span>
 					<span class="color-block" style="background-color: #00AAAA; cursor: pointer;" onclick="colorSelect(6)"></span>
 					<span class="color-block" style="background-color: #00AAFF; cursor: pointer;" onclick="colorSelect(7)"></span>
-					<span class="color-block" style="text-align: center; font-size: 28px; cursor: pointer;" onclick="colorSelect(8)">
+					<span class="color-block" style="text-align: center; font-size: 28px; cursor: pointer; user-select: none;" onclick="colorSelect(8)">
 						&larr;
 					</span>
-					<span class="color-block" style="text-align: center; font-size: 28px; cursor: pointer;" onclick="colorSelect(9)">
+					<span class="color-block" style="text-align: center; font-size: 28px; cursor: pointer; user-select: none;" onclick="colorSelect(9)">
 						&crarr;
 					</span>
 				</div>
@@ -530,5 +529,4 @@
 			clickWordle();
 		</script>
 	</body>
-	<script>clickWordle();</script>
 </html>
