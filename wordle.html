@@ -1075,10 +1075,11 @@
             let html = `
                 <h2>玩法与计分说明</h2>
                 <div style="font-size:13px; line-height:1.6; text-align:left;">
-                系统从你选定的颜色库中，选择若干颜色作为密码，你需要猜出颜色和顺序。你的每次猜测必须是按顺序填满。<br/>
+                系统从颜色库中随机选择若干个颜色，你需要猜出颜色及顺序。你的每次猜测必须按顺序填满。<br/>
+                给出猜测后你会得到本次猜测的结果：哪些颜色存在，但位置不正确，哪些颜色位置正确。<br/>
                 <b>（PC快捷键：数字键 1-9 快捷选色，Backspace 退格，Enter 提交）</b><br/><br/>
                 <b>Easy：</b><br/>
-                颜色条在对应方块下方直接显示：<br/>
+                颜色块下方的颜色条表示此颜色的猜测结果：<br/>
                 <div class="guess-card" style="margin: 5px 0; border:none; box-shadow:none; padding:0; flex-direction:column;">
                     <span class="container-color-block">
                         <span class="color-block" style="background-color: #AA00AA; width:20px;height:20px;"></span>
@@ -1099,7 +1100,7 @@
                 
                 <hr style="border:1px dashed var(--border-color);"/>
                 <b>Hard：</b><br/>
-                颜色点在右侧集中显示，顺序是<b>随机打乱</b>的：
+                颜色块右方的颜色点表示本次猜测的<b>数量</b>结果：
                 <div class="guess-card" style="margin: 5px 0; border:none; box-shadow:none; padding:0; flex-direction:row;">
                     <span class="container-color-block">
                         <span class="color-block" style="background-color: #AA00AA; width:20px;height:20px;"></span>
@@ -1114,7 +1115,7 @@
                         <span class="color-dot dot3" style="background-color: var(--empty-bg); margin:2px;"></span>
                     </span>
                 </div>
-                上述例子仅表示你猜对了两个颜色，其中一个位置也猜对了。<b>不代表就是第一格和第二格！必须靠逻辑排查位置。</b>
+                上述例子仅表示你猜对了两个颜色，其中一个位置正确。
                 
                 <hr style="border:1px dashed var(--border-color);"/>
                 <b>表现分计算算法：</b><br/>
