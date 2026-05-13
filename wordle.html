@@ -394,6 +394,16 @@
         { name: "困难", c: 8, s: 5, g: 10 }, { name: "大师", c: 9, s: 6, g: 12 },
         { name: "自定义", c: 8, s: 4, g: 10 }
     ];
+
+    const INFINITE_GUESSES = 9999;
+    const ITEMS_CFG = {
+        hint:  { name: '排除一项',   cost: 50,  penalty: 0.3, color: '', val: 0 },
+        time:  { name: '增加时长(+30s)',     cost: 30,  penalty: 0.2, color: '', val: 30 },
+        guess: { name: '增加步数(+1步)',      cost: 40,  penalty: 0.2, color: '', val: 1 },
+        audio: { name: '摩斯电码', cost: 80,  penalty: 0.2, color: '#3498db', val: 0 },
+        ai:    { name: '算法搜索',   cost: 200, penalty: 0.5, color: '#9b59b6', val: 0 }
+    };
+
     let autoContinueTimerId = null;
 
     const UserData = {
@@ -406,14 +416,11 @@
 
     // --- Knuth's Minimax Algorithm ---
     const AI = {
-        // 辅助函数：计算任意两个组合之间的提示 (绿点/橙点)
         calculateHint(guess, answer) {
             let greens = 0, oranges = 0;
             let ansCopy = [...answer], guessCopy = [...guess];
             for (let i = 0; i < guess.length; i++) {
-                if (guessCopy[i] === ansCopy[i]) {
-                    greens++; ansCopy[i] = -1; guessCopy[i] = -2;
-                }
+                if (guessCopy[i] === ansCopy[i]) { greens++; ansCopy[i] = -1; guessCopy[i] = -2; }
             }
             for (let i = 0; i < guess.length; i++) {
                 if (guessCopy[i] >= 0) {
@@ -424,10 +431,8 @@
             return { greens, oranges };
         },
 
-        // 主函数：找到最优的下一步猜测
         findBestGuess(history, config) {
-            // 1. 生成所有可能的密码组合 (S)
-            let allPermutations = [];
+            let allPermutations =[];
             function generate(prefix, elements) {
                 if (prefix.length === config.s) {
                     allPermutations.push(prefix); return;
@@ -441,7 +446,6 @@
             }
             generate([], Array.from({length: config.c}, (_,i)=>i));
             
-            // 2. 根据历史记录，筛选出当前所有还可能的答案
             let possibleSolutions = allPermutations.filter(solution => {
                 return history.every(pastGuess => {
                     const hint = this.calculateHint(pastGuess.colors, solution);
@@ -451,21 +455,15 @@
 
             if (possibleSolutions.length <= 1) return possibleSolutions[0] || null;
 
-            // 3. Minimax 算法：从所有可能的猜测中，找到能最大程度缩小答案范围的一个
             let bestGuess = null, minMaxPartition = Infinity;
-            
-            // 检查所有可能的猜测（不仅限于当前可能的答案）
             for (const guess of allPermutations) {
-                const partitions = {}; // 存储这个猜测会导致的各种可能结果(分区)
+                const partitions = {}; 
                 for (const solution of possibleSolutions) {
                     const hint = this.calculateHint(guess, solution);
                     const key = `${hint.greens},${hint.oranges}`;
                     partitions[key] = (partitions[key] || 0) + 1;
                 }
-                
-                // 找到这个猜测在最坏情况下，会剩下多少种可能性
                 const maxPartition = Math.max(...Object.values(partitions));
-                
                 if (maxPartition < minMaxPartition) {
                     minMaxPartition = maxPartition;
                     bestGuess = guess;
@@ -578,7 +576,7 @@
             };
 
             if (mode === 'classic') {
-                cfg.is2P = false; cfg.repeat = false; // 经典模式不可重复
+                cfg.is2P = false; cfg.repeat = false;
                 cfg.classicLevel = classicLvl || UserData.p1.classicLevel;
                 Game.start(cfg);
             } 
@@ -591,19 +589,19 @@
                 Game.start(cfg, Game.generateAnswer(cfg, seed));
             }
             else if (mode === 'challenge') {
-                if(cfg.is2P) UI.openVSSetup(cfg); else Game.start(cfg);
+                if(cfg.is2P) UI.show2PSetupPrompt(cfg); else Game.start(cfg);
             }
             else if (mode === 'speedrun') {
-                cfg.is2P = false; cfg.g = 9999;
+                cfg.is2P = false; cfg.g = INFINITE_GUESSES;
                 Game.start(cfg, null, 0); 
             }
             else if (mode === 'casual') {
-                cfg.t = 0; cfg.g = 9999; 
-                if(cfg.is2P) UI.openVSSetup(cfg); else Game.start(cfg);
+                cfg.t = 0; cfg.g = INFINITE_GUESSES; 
+                if(cfg.is2P) UI.show2PSetupPrompt(cfg); else Game.start(cfg);
             }
         },
         resetGame() {
-            if(Game.config.is2P) UI.openVSSetup(Game.config);
+            if(Game.config.is2P) UI.show2PSetupPrompt(Game.config);
             else if(Game.config.mode === 'classic') {
                 this.startGame('classic', Game.config.classicLevel);
             }
@@ -623,11 +621,14 @@
         start(cfg, customAnswer = null, speedrunWins = 0) {
             this.config = cfg;
             if (this.state && this.state.timerId) clearInterval(this.state.timerId);
+            
+            let initialItemsUsed = Object.keys(ITEMS_CFG).reduce((acc, key) => { acc[key] = false; return acc; }, {});
+
             this.state = {
                 active: true, cheatClicks: 0, speedrunWins: speedrunWins,
                 answer: customAnswer || this.generateAnswer(this.config),
                 guesses:[], currentInput:[], timeLeft: this.config.t, 
-                disabledColors:[], itemsUsed: { hint: false, time: false, guess: false, ai: false }
+                disabledColors:[], itemsUsed: initialItemsUsed
             };
             
             UI.showGameScreen();
@@ -712,7 +713,6 @@
 
             let rowId = 'history-row-' + (this.state.guesses.length - 1);
 
-            // 竞速模式特殊接续
             if (this.config.mode === 'speedrun') {
                 if (greens === this.config.s) {
                     this.state.timeLeft += 30; this.state.speedrunWins++;
@@ -741,15 +741,20 @@
         },
 
         buyItem(type) {
-            const configAdd = { time: 30, guess: 1 }; 
+            let itemCfg = ITEMS_CFG[type];
+            let playerRef = this.config.is2P ? (UserData.turn2P === 0 ? UserData.p2 : UserData.p1) : UserData.p1;
+            
+            if (type === 'audio' && this.state.itemsUsed.audio) {
+                UI.showFloatingText("🎵 播放摩斯电码...", "var(--blue)");
+                AudioEngine.playMorseCode(this.state.answer);
+                return;
+            }
 
-            const costs = { hint: 50, time: 30, guess: 40, ai: 200 };
-            let p = this.config.is2P ? UserData.p2 : UserData.p1;
-            if (p.coins < costs[type]) return alert("金币不足！");
-            p.coins -= costs[type]; this.state.itemsUsed[type] = true; UserData.save();
+            if (playerRef.coins < itemCfg.cost) return alert("金币不足！");
+            playerRef.coins -= itemCfg.cost; this.state.itemsUsed[type] = true; UserData.save();
 
-            if (type === 'time') this.state.timeLeft += configAdd.time;
-            else if (type === 'guess') this.config.g += configAdd.guess;
+            if (type === 'time') this.state.timeLeft += itemCfg.val;
+            else if (type === 'guess') this.config.g += itemCfg.val;
             else if (type === 'hint') {
                 let av =[];
                 for(let i=0; i<this.config.c; i++) {
@@ -771,8 +776,14 @@
                         UI.closeModal();
                     }
                 }, 100);
+            } else if (type === 'audio') {
+                UI.showFloatingText("播放摩斯电码...", "var(--blue)");
+                AudioEngine.playMorseCode(this.state.answer);
             }
-            UI.renderHeaderState(); AudioEngine.playSuccess(); UI.openStore();
+            
+            UI.renderHeaderState(); 
+            if (type !== 'ai' && type !== 'audio') AudioEngine.playSuccess(); 
+            UI.openStore();
         },
 
         cheatClick() {
@@ -784,12 +795,6 @@
             }
         },
 
-        continueNext() {
-            if(this.config.mode === 'classic') App.startGame('classic', this.config.classicLevel);
-            else if(this.config.mode === 'daily') UI.showHome();
-            else App.startGame(this.config.mode);
-        },
-
         endGame(isWin, title) {
             this.state.active = false;
             clearInterval(this.state.timerId);
@@ -798,17 +803,32 @@
             const didWin = isWin;
 
             if(this.state.cheatClicks < 5 && this.config.mode !== 'speedrun') {
-                let baseScore = (this.config.s * this.config.c) * 10;
-                let stepMulti = this.config.g === 9999 ? 1 : (1 + (this.config.g - this.state.guesses.length) * 0.1);
-                earned = didWin ? Math.floor(baseScore * stepMulti) : 10;
-                if(didWin && this.state.itemsUsed.hint) earned = Math.floor(earned * 0.7);
-                if(didWin && this.state.itemsUsed.time) earned = Math.floor(earned * 0.8);
-                if(didWin && this.state.itemsUsed.guess) earned = Math.floor(earned * 0.8);
-                if(didWin && this.state.itemsUsed.ai) earned = Math.floor(earned * 0.5);
+                let baseGold = (this.config.s * this.config.c) * 10;
+                let isInfinite = this.config.g >= INFINITE_GUESSES;
+                let stepMulti = isInfinite ? 1 : Math.max(1, 1 + (this.config.g - this.state.guesses.length) * 0.1);
+                
+                earned = didWin ? Math.floor(baseGold * stepMulti) : 0;
+                
+                if (didWin) {
+                    let totalPenalty = 0;
+                    for (let type in ITEMS_CFG) {
+                        if (this.state.itemsUsed[type]) totalPenalty += ITEMS_CFG[type].penalty;
+                    }
+                    totalPenalty = Math.min(totalPenalty, 1.0); 
+                    earned = Math.max(0, Math.floor(earned * (1 - totalPenalty)));
+                }
             }
             
             if(this.config.is2P) {
-                if(didWin) { UserData.p2.wins++; UserData.p2.coins += earned; } else { UserData.p1.wins++; UserData.p1.coins += 50; earned=0;}
+                let guesserKey = UserData.turn2P === 0 ? 'p2' : 'p1';
+                let setterKey = UserData.turn2P === 0 ? 'p1' : 'p2';
+
+                if(didWin) { 
+                    UserData[guesserKey].wins++; UserData[guesserKey].coins += earned; 
+                } else { 
+                    UserData[setterKey].wins++; UserData[setterKey].coins += 50; 
+                    earned = 0;
+                }
                 UserData.p1.played++; UserData.p2.played++;
                 UserData.turn2P = 1 - UserData.turn2P; 
             } else {
@@ -842,7 +862,7 @@
             if (didWin) { AudioEngine.playSuccess(); startFireworks(); } else AudioEngine.playLose();
             
             setTimeout(() => {
-                if(didWin) AudioEngine.playMorseCode(this.state.answer);
+                if(didWin && !this.state.itemsUsed.audio) AudioEngine.playMorseCode(this.state.answer);
                 UI.showResultModal(didWin, title, earned);
             }, 800);
         }
@@ -857,7 +877,7 @@
             document.getElementById('screen-game').classList.remove('active');
             document.getElementById('screen-home').classList.add('active');
             if(Game.state && Game.state.timerId) clearInterval(Game.state.timerId);
-            App.updateHomeUI(); // Refresh levels
+            App.updateHomeUI(); 
         },
 
         showGameScreen() {
@@ -896,7 +916,7 @@
                 timerEl.innerText = `⏱ ${m}:${s}`;
             } else timerEl.innerText = `⏱ ∞`;
 
-            let left = Game.config.g === 9999 ? '∞' : (Game.config.g - Game.state.guesses.length);
+            let left = Game.config.g >= INFINITE_GUESSES ? '∞' : (Game.config.g - Game.state.guesses.length);
             document.getElementById('ui-guesses').innerText = `👟 ${left}`;
         },
 
@@ -987,7 +1007,7 @@
             ansHTML += `</div>`;
 
             let modeName = Game.config.mode === 'classic' ? `闯关模式 第${Game.config.classicLevel}关` : Game.config.mode === 'challenge' ? `挑战模式` : Game.config.mode === 'speedrun' ? `竞速模式` : Game.config.mode === 'daily' ? `每日挑战` : `休闲模式`;
-            let paramStr = `⚙️ ${Game.config.c}色·${Game.config.s}槽`;
+            let paramStr = `${Game.config.c}色·${Game.config.s}槽`;
             if (Game.config.mode !== 'speedrun' && Game.config.mode !== 'casual') paramStr += `·${Game.config.g}步`;
             paramStr += ` | ${Game.config.hintType === 'hard' ? '乱序' : '对位'} | ${Game.config.repeat ? '可重复' : '不重复'}`;
 
@@ -1004,8 +1024,8 @@
             }
 
             let mainBtn = isWin ? 
-                `<button class="button-blue" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); App.resetGame(); UI.closeModal();">下一局</button>` : 
-                `<button class="button-danger" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); App.resetGame(); UI.closeModal();">重新开始</button>`;
+                `<button class="button-blue" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); UI.closeModal(); App.resetGame();">下一局</button>` : 
+                `<button class="button-danger" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); UI.closeModal(); App.resetGame();">重新开始</button>`;
 
             let html = `
                 <h2>${title}</h2>
@@ -1045,27 +1065,45 @@
 
         openStore() {
             if (!Game.state.active) return;
-            let p = Game.config.is2P ? UserData.p2 : UserData.p1;
-            let bHint = Game.state.itemsUsed.hint ? 'disabled' : '';
-            let bTime = Game.state.itemsUsed.time || Game.config.t===0 ? 'disabled' : '';
-            let bGuess = Game.state.itemsUsed.guess || Game.config.g===9999 ? 'disabled' : '';
-            let bAI = Game.state.itemsUsed.ai || Game.config.mode === 'casual' ? 'disabled' : '';
+            let playerRef = Game.config.is2P ? (UserData.turn2P === 0 ? UserData.p2 : UserData.p1) : UserData.p1;
             
             let html = `
                 <h2>道具商店</h2>
-                <div style="text-align:center; margin-bottom:15px; font-weight:bold;">余额: <span style="color:var(--gold)">🪙 ${p.coins}</span></div>
-                <div class="store-item"><div class="store-item-info"><span class="store-item-title">排除一项</span></div>
-                    <button class="button-std button-gold" ${bHint} onclick="Game.buyItem('hint')">🪙50</button></div>
-                <div class="store-item"><div class="store-item-info"><span class="store-item-title">+30s</span></div>
-                    <button class="button-std button-gold" ${bTime} onclick="Game.buyItem('time')">🪙30</button></div>
-                <div class="store-item"><div class="store-item-info"><span class="store-item-title">+1步</span></div>
-                    <button class="button-std button-gold" ${bGuess} onclick="Game.buyItem('guess')">🪙40</button></div>
-                <div class="store-item" style="border-color: #9b59b6;">
+                <div style="text-align:center; margin-bottom:15px; font-weight:bold;">余额: <span style="color:var(--gold)">🪙 ${playerRef.coins}</span></div>
+            `;
+
+            for (let type in ITEMS_CFG) {
+                let item = ITEMS_CFG[type];
+                let isDisabled = false;
+                let btnText = `🪙${item.cost}`;
+                let btnStyle = ``;
+                let titleStyle = item.color ? `color:${item.color}; font-weight:bold;` : ``;
+                let rowStyle = item.color ? `border-color:${item.color};` : ``;
+
+                if (type === 'hint' && Game.state.itemsUsed.hint) isDisabled = true;
+                if (type === 'time' && (Game.state.itemsUsed.time || Game.config.t === 0)) isDisabled = true;
+                if (type === 'guess' && (Game.state.itemsUsed.guess || Game.config.g >= INFINITE_GUESSES)) isDisabled = true;
+                if (type === 'ai' && (Game.state.itemsUsed.ai || Game.config.mode === 'casual')) isDisabled = true;
+                
+                if (type === 'ai' && !isDisabled) {
+                    btnStyle = `background-color:${item.color}; color:white; border-color:${item.color};`;
+                }
+                if (type === 'audio' && Game.state.itemsUsed.audio) {
+                    btnText = '重播';
+                    btnStyle = `background-color:var(--blue); color:white; border-color:var(--blue);`;
+                }
+
+                html += `
+                <div class="store-item" style="${rowStyle}">
                     <div class="store-item-info">
-                        <span class="store-item-title" style="color:#9b59b6;">算法提示</span>
+                        <div class="store-item-title" style="${titleStyle}">${item.name}</div>
+                        <div style="font-size:11px; color:var(--danger); margin-top:4px; font-weight:bold;">(金币扣除 ${Math.round(item.penalty * 100)}%)</div>
                     </div>
-                    <button class="button-std button-gold" style="background:#9b59b6; color:white;" ${bAI} onclick="Game.buyItem('ai')">🪙200</button>
-                </div>
+                    <button class="button-std button-gold" style="${btnStyle}" ${isDisabled ? 'disabled' : ''} onclick="Game.buyItem('${type}')">${btnText}</button>
+                </div>`;
+            }
+
+            html += `
                 <button class="button-std" style="width:100%; margin-top:10px;" onclick="UI.closeModal()">返回</button>
             `;
             this.showModal(html);
@@ -1118,11 +1156,13 @@
                 上述例子仅表示你猜对了两个颜色，其中一个位置正确。
                 
                 <hr style="border:1px dashed var(--border-color);"/>
-                <b>表现分计算算法：</b><br/>
-                - 基础分 = 槽数 × 色数 × 10<br/>
-                - 步数乘数 = 1 + (设定总步数 - 实际使用步数) × 0.1<br/>
-                - 道具扣除 = 使用排除错色扣除 30%，加时扣除 20%，加步数扣除 20%，算法提示扣除 50%<br/>
-                - 最终得分 = 基础分 × 步数乘数 × (1 - 道具扣除比率)。失败保底得 10 币。
+                <b>通关金币奖励计算：</b><br/>
+                - 基础金币 = 槽数 × 色数 × 10<br/>
+                - 步数加成 = 1 + (设定总步数 - 实际使用步数) × 0.1 (仅限限制步数玩法）<br/>
+                - 最终金币 = 基础金币 × 步数加成。<br/>
+                注：<br/>
+                - 挑战失败将无法获得金币，也不会损失金币；<br/>
+                - 使用道具将按比例扣除金币奖励，详见商店页面。
                 </div>
                 <button class="button-primary" style="margin-top:15px;" onclick="UI.closeModal()">我明白了</button>
             `;
@@ -1150,6 +1190,35 @@
                 </div>
                 <div style="text-align:left; font-weight:bold; font-size:14px;">通关步数:</div><div style="background:var(--bg-color); padding:10px; border-radius:4px; margin-top:5px;">${heatmapHTML}</div>
                 <button class="button-primary" style="margin-top:15px;" onclick="UI.closeModal()">关闭</button>
+            `;
+            this.showModal(html);
+        },
+
+        show2PSetupPrompt(cfg) {
+            let p1Name = escapeHTML(UserData.p1.name);
+            let p2Name = escapeHTML(UserData.p2.name);
+            
+            let p1Style = UserData.turn2P === 0 ? 'button-primary' : 'button-std';
+            let p2Style = UserData.turn2P === 1 ? 'button-primary' : 'button-std';
+
+            window.select2PRole = (turn) => {
+                UserData.turn2P = turn;
+                UserData.save();
+                UI.closeModal();
+                UI.openVSSetup(cfg);
+            };
+
+            let html = `
+                <h2>决定先手玩家</h2>
+                <div style="display:flex; flex-direction:column; gap:15px; padding:0 20px;">
+                    <button class="button-std ${p1Style}" onclick="select2PRole(0)">
+                        P1 ${p1Name} 先手
+                    </button>
+                    <button class="button-std ${p2Style}" onclick="select2PRole(1)">
+                        P2 ${p2Name} 先手 
+                    </button>
+                </div>
+                <button class="button-std" style="width:100%; margin-top:20px;" onclick="UI.closeModal()">取消</button>
             `;
             this.showModal(html);
         },
@@ -1227,7 +1296,7 @@
                 <div id="vs-board" style="display:flex; justify-content:center;"></div>
                 ${kbHtml}
                 <div style="text-align:center; margin-top:20px;">
-                    <button class="button-std" style="width:100%;" onclick="App.vsSetupActive=false; UI.closeModal()">取消返回</button>
+                    <button class="button-std" style="width:100%;" onclick="App.vsSetupActive=false; UI.closeModal()">取消</button>
                 </div>
             `;
             this.showModal(html); 
@@ -1238,14 +1307,11 @@
             while(Game.state.currentInput.length > 0) {
                 Game.inputBackspace();
             }
-            
             for (const colorIndex of sequence) {
                 const keyElement = document.getElementById(`key-${colorIndex}`);
                 if (keyElement) {
                     keyElement.classList.add('hint-flash');
-                    
                     Game.inputColor(colorIndex);
-                    
                     await new Promise(resolve => setTimeout(() => {
                         keyElement.classList.remove('hint-flash');
                         resolve();
