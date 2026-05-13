@@ -1,651 +1,1081 @@
 <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>Wordle NG (Mastermind)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    
+    <script>
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme_wordle_ultimate');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-theme', savedTheme || (prefersDark ? 'dark' : 'light'));
+        }
+        initTheme();
+        
+        function toggleTheme() {
+            const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme_wordle_ultimate', newTheme);
+            document.querySelectorAll('.theme-toggle').forEach(el => el.innerText = newTheme === 'dark' ? '◑' : '◐');
+        }
+    </script>
 
-<html lang="en" xmlns="http://www.w3.org/1999/html">
-	<head>
-		<title>Wordle</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		
-		<script>
-			function initTheme() {
-				const savedTheme = localStorage.getItem('theme');
-				const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-				const theme = savedTheme ? savedTheme : (prefersDark ? 'dark' : 'light');
-				document.documentElement.setAttribute('data-theme', theme);
-			}
-			initTheme();
-			
-			function toggleTheme() {
-				const currentTheme = document.documentElement.getAttribute('data-theme');
-				const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-				document.documentElement.setAttribute('data-theme', newTheme);
-				localStorage.setItem('theme', newTheme);
-				updateThemeIcon(newTheme);
-			}
-			
-			function updateThemeIcon(theme) {
-				const btn = document.getElementById('theme-toggle');
-				if (btn) {
-					btn.innerText = theme === 'dark' ? '◑' : '◐';
-				}
-			}
-			
-			window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-				if (!localStorage.getItem('theme')) {
-					const newTheme = e.matches ? 'dark' : 'light';
-					document.documentElement.setAttribute('data-theme', newTheme);
-					updateThemeIcon(newTheme);
-				}
-			});
-			
-			document.addEventListener('DOMContentLoaded', () => {
-				updateThemeIcon(document.documentElement.getAttribute('data-theme'));
-			});
-		</script>
+    <style>
+        :root {
+            --bg-color: #FFFFFF; --text-color: #000000; --card-bg: #FFFFFF;
+            --border-color: #E0E0E0; --shadow-color: rgba(0, 0, 0, 0.1);
+            --empty-bg: #E0E0E0; --btn-bg: #FFFFFF; --control-bg: #F5F5F5; 
+            --text-muted: #999999; --gold: #F5A623; --danger: #e74c3c; --primary: #00AA00;
+            --primary-dark: #008800; --blue: #3498db; --blue-dark: #2980b9;
+        }
+        [data-theme="dark"] {
+            --bg-color: #121212; --text-color: #E0E0E0; --card-bg: #1E1E1E;
+            --border-color: #3A3A3A; --shadow-color: rgba(0, 0, 0, 0.5);
+            --empty-bg: #444444; --btn-bg: #2C2C2C; --control-bg: #3A3A3A; 
+            --text-muted: #888888;
+        }
 
-		<style>
-			:root {
-				--bg-color: #FFFFFF;
-				--text-color: #000000;
-				--card-bg: #FFFFFF;
-				--border-color: #EEEEEE;
-				--shadow-color: rgba(0, 0, 0, 0.1);
-				--shadow-hover: rgba(0, 0, 0, 0.2);
-				--empty-bg: #AAAAAA;
-				--btn-bg: #FFFFFF;
-				--control-bg: #E0E0E0;
-				--win-bg: #E8F5E9;
-				--win-border: #00AA00;
-				--text-muted: #AAAAAA;
-			}
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-color); color: var(--text-color);
+            font-family: Consolas, "Courier New", monospace;
+            -webkit-tap-highlight-color: transparent; overflow: hidden;
+        }
+        
+        #app-container { width: 100%; max-width: 720px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; position: relative; }
+        .screen { display: none; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
+        .screen.active { display: flex; }
+        .hidden { display: none !important; }
 
-			[data-theme="dark"] {
-				--bg-color: #121212;
-				--text-color: #E0E0E0;
-				--card-bg: #1E1E1E;
-				--border-color: #333333;
-				--shadow-color: rgba(0, 0, 0, 0.5);
-				--shadow-hover: rgba(0, 0, 0, 0.8);
-				--empty-bg: #444444;
-				--btn-bg: #2C2C2C;
-				--control-bg: #555555;
-				--win-bg: #1A3320;
-				--win-border: #00AA00;
-				--text-muted: #888888;
-			}
+        /* 顶部导航 */
+        .header-bar { width: 100%; background-color: var(--primary); color: #FFF; user-select: none; display: flex; align-items: center; position: relative; flex-shrink: 0;}
+        .header-home { justify-content: center; padding: 12px 0; }
+        .header-game { justify-content: space-between; padding: 10px 15px; font-size: 16px; font-weight: bold; }
+        .header-title { margin: 0; font-size: 28px; text-align: center; }
+        .header-icon { position: absolute; font-size: 22px; cursor: pointer; transition: 0.2s; color: white; padding: 5px; }
+        .header-icon:hover { opacity: 0.7; }
+        .icon-left { left: 15px; } 
+        
+        .header-actions { position: absolute; right: 15px; display: flex; align-items: center; gap: 15px; }
+        .header-game .header-actions { position: relative; right: 0; }
+        .header-actions a { color: white; display: flex; transition: opacity 0.2s; }
+        .header-actions a:hover { opacity: 0.7; }
+        .header-actions .theme-toggle { font-size: 22px; cursor: pointer; transition: 0.2s; }
+        .header-actions .theme-toggle:hover { opacity: 0.7; }
 
-			body {
-				margin: 0;
-				padding: 0;
-				background-color: var(--bg-color);
-				color: var(--text-color);
-				transition: background-color 0.3s ease, color 0.3s ease;
-			}
-			#top-container
-			{
-				width: 720px;
-				margin: 0 auto;
-				font-family: Consolas, serif;
-				padding-bottom: 50px;
-			}
-			
-			.header-bar {
-				width: 100%;
-				background-color: #00AA00;
-				user-select: none;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				position: relative;
-			}
-			
-			#wordle
-			{
-				text-align: center;
-				color: #FFFFFF;
-				margin: 0;
-				font-size: 32px;
-				cursor: pointer;
-				padding: 10px 0;
-			}
-			
-			#theme-toggle {
-				position: absolute;
-				right: 20px;
-				font-size: 24px;
-				cursor: pointer;
-				user-select: none;
-				color: #FFFFFF;
-				transition: opacity 0.3s;
-			}
-			#theme-toggle:hover {
-				opacity: 0.7;
-			}
+        /* 首页滚动区 */
+        #home-scroll-area { flex: 1; overflow-y: auto; padding-bottom: 30px; }
 
-			.box-card
-			{
-				border: 1px solid var(--border-color);
-				background-color: var(--card-bg);
-				box-shadow: 0 2px 4px 0 var(--shadow-color);
-				transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
-				margin: 10px 0 10px 0;
-				padding: 10px;
-				border-radius: 8px;
-			}
-			.box-card:hover
-			{
-				box-shadow:
-					0 2px 4px 0 var(--shadow-color),
-					0 4px 8px 0 var(--shadow-hover);
-			}
-			.button-diff
-			{
-				border: 1px solid var(--border-color);
-				background-color: var(--btn-bg);
-				color: var(--text-color);
-				cursor: pointer;
-				padding: 6px 12px;
-				border-radius: 5px;
-				transition: all 0.3s ease;
-				font-weight: bold;
-			}
-			.button-diff-select
-			{
-				border: 1px solid #00AA00;
-				background-color: #00AA00;
-				cursor: pointer;
-				padding: 6px 12px;
-				border-radius: 5px;
-				color: white;
-				transition: all 0.3s ease;
-				font-weight: bold;
-			}
-			.button-reset 
-			{
-				border: 1px solid #e74c3c;
-				background-color: #e74c3c;
-				cursor: pointer;
-				padding: 6px 12px;
-				border-radius: 5px;
-				color: white;
-				transition: all 0.3s ease;
-				font-weight: bold;
-				margin-left: 20px;
-			}
-			.button-reset:hover {
-				background-color: #c0392b;
-			}
-			.guess-card
-			{
-				border: 1px solid var(--border-color);
-				background-color: var(--card-bg);
-				box-shadow: 0 2px 4px 0 var(--shadow-color);
-				margin: 10px auto;
-				padding: 10px;
-				width: min-content;
-				white-space: nowrap;
-				border-radius: 8px;
-				transition: all 0.3s ease;
-			}
-			.guess-card-current {
-				border: 1px solid #00AAFF;
-				box-shadow: 0 2px 8px 0 rgba(0, 170, 255, 0.3);
-			}
-			.container-color-block
-			{
-				display: block flex;
-				align-items: center;
-				justify-content: center;
-			}
-			.color-block
-			{
-				width: 36px;
-				height: 36px;
-				display: inline-block;
-				margin-left: 5px;
-				margin-right: 5px;
-				background-color: var(--empty-bg);
-				border-radius: 4px;
-				transition: background-color 0.3s ease;
-			}
-			.control-btn {
-				background-color: var(--control-bg);
-				color: var(--text-color);
-				line-height: 36px;
-				text-align: center;
-				font-size: 24px;
-				cursor: pointer;
-				user-select: none;
-				vertical-align: top;
-			}
-			.control-btn:hover {
-				opacity: 0.8;
-			}
-			.color-under
-			{
-				width: 36px;
-				height: 6px;
-				display: inline-block;
-				margin-left: 5px;
-				margin-right: 5px;
-				border-radius: 3px;
-				background-color: var(--empty-bg);
-				transition: background-color 0.3s ease;
-			}
-			.color-dot
-			{
-				width: 6px;
-				height: 6px;
-				display: inline-block;
-				border-radius: 3px;
-				background-color: var(--empty-bg);
-				transition: background-color 0.3s ease;
-			}
-			.dot0 { margin-top: 8px; margin-left: 8px; }
-			.dot1 { margin-top: 8px; margin-left: 8px; }
-			.dot2 { margin-top: 22px; margin-left: -20px; }
-			.dot3 { margin-top: 22px; margin-left: 8px; }
-			
-			#win-message {
-				display: none;
-				text-align: center;
-				color: #00AA00;
-				font-size: 24px;
-				font-weight: bold;
-				margin: 10px 0;
-				border-color: var(--win-border);
-				background-color: var(--win-bg);
-				animation: pop 0.5s ease;
-			}
+        /* 卡片与按钮 */
+        .box-card { border: 1px solid var(--border-color); background-color: var(--card-bg); box-shadow: 0 4px 6px var(--shadow-color); margin: 15px 10px; padding: 15px; border-radius: 8px; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .button-std { border: 1px solid var(--border-color); background-color: var(--btn-bg); color: var(--text-color); cursor: pointer; padding: 10px; border-radius: 5px; font-weight: bold; font-family: inherit; font-size: 14px; text-align: center; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center;}
+        .button-std:active { transform: scale(0.98); }
+        .button-std:hover:not(:disabled) { border-color: var(--primary); }
+        .button-primary { background-color: var(--primary); color: white; border-color: var(--primary); width: 100%; font-size: 16px; padding: 12px; flex-direction: row;}
+        .button-primary:hover:not(:disabled) { background-color: var(--primary-dark); }
+        .button-blue { background-color: var(--blue); color: white; border-color: var(--blue); width: 100%; font-size: 16px; padding: 12px; flex-direction: row; }
+        .button-blue:hover:not(:disabled) { background-color: var(--blue-dark); }
+        .button-danger { background-color: var(--danger); color: white; border-color: var(--danger); flex-direction: row; }
+        .button-gold { background-color: var(--gold); color: #000; border-color: var(--gold); flex-direction: row; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(100%); }
 
-			@keyframes pop {
-				0% { transform: scale(0.8); opacity: 0; }
-				100% { transform: scale(1); opacity: 1; }
-			}
-		</style>
-		<script>
-			const color = [
-				"#AA0000",
-				"#00AA00",
-				"#0000AA",
-				"#FFAA00",
-				"#AA00AA",
-				"#FF00AA",
-				"#00AAAA",
-				"#00AAFF",
-			];
-			let step = 0;
-			let difficulty = 0;
-			let status = 0;
-			let isGameOver = false;
+        /* 输入与设置区域 */
+        .setting-row { display: flex; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+        input[type="text"], input[type="number"] { padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-color); color: var(--text-color); font-family: inherit; flex: 1; min-width: 60px;}
+        input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--primary); }
+        .dice-btn { cursor: pointer; font-size: 20px; background: none; border: none; padding: 0 5px; line-height: 1; }
+        .score-badge { font-size: 12px; background: var(--control-bg); padding: 4px 8px; border-radius: 4px; font-weight:bold; white-space: nowrap; cursor: pointer; border:1px solid var(--border-color);}
+        
+        .toggle-group { display: flex; border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; flex: 1; min-width: 150px;}
+        .toggle-btn { flex: 1; padding: 8px; text-align: center; cursor: pointer; font-size: 13px; font-weight: bold; background: var(--btn-bg); transition: 0.2s; }
+        .toggle-btn.active { background: var(--primary); color: white; }
+        
+        .custom-param-box { display: flex; gap: 10px; background: var(--control-bg); padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 12px; font-weight: bold; align-items: center; flex-wrap: wrap; justify-content: center;}
 
-			const answer = [0, 0, 0, 0];
-			const guess = [0, 0, 0, 0];
-			function nextGuess()
-			{
-				const newGuessCard = document.getElementById("guess-card-template").cloneNode(true);
-				newGuessCard.removeAttribute("id"); 
-				newGuessCard.classList.add("guess-card-current");
-				newGuessCard.style.display = "flex";
-				document.getElementById("guess-container").appendChild(newGuessCard);
-			}
-			function newAnswer()
-			{
-				for (let i = 0; i < 4;)
-				{
-					let succ = true;
-					const idx = Math.floor(Math.random() * 8);
-					for (let j = 0; (j < i) && succ; j++)
-					{
-						if (answer[j] === idx)
-							succ = false;
-					}
-					if (succ)
-						answer[i++] = idx;
-				}
-				console.log("Answer array:", answer); 
-			}
-			function clickWordle()
-			{
-				console.log("Init or Reset Wordle Game");
-				isGameOver = false;
-				stopFireworks();
-				document.getElementById("win-message").style.display = "none";
-				
-				const container = document.getElementById("guess-container");
-				const oldGuesses = container.querySelectorAll(".guess-card:not(#guess-card-template)");
-				oldGuesses.forEach(el => el.remove());
-				
-				step = 0;
-				status = 0;
-				nextGuess();
-				newAnswer();
-			}
-			function diffButton(hard)
-			{
-				if (hard === difficulty)
-					return;
-				if (step)
-				{
-					alert("Game has already started, please reset game to switch difficulty.");
-					return;
-				}
-				difficulty = hard;
-				if (difficulty)
-				{
-					console.log("Difficulty: Hard");
-					document.getElementById("button-easy").className = "button-diff";
-					document.getElementById("button-hard").className = "button-diff-select";
-					document.getElementById("introduce-easy").style.display = "none";
-					document.getElementById("introduce-hard").style.display = "block";
-				}
-				else
-				{
-					console.log("Difficulty: Easy");
-					document.getElementById("button-easy").className = "button-diff-select";
-					document.getElementById("button-hard").className = "button-diff";
-					document.getElementById("introduce-hard").style.display = "none";
-					document.getElementById("introduce-easy").style.display = "block";
-				}
-			}
+        /* 游戏专属布局 */
+        .game-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; margin: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); box-shadow: 0 4px 6px var(--shadow-color); }
+        .game-header-info { padding: 10px 15px; border-bottom: 1px dashed var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; flex-shrink: 0;}
+        #guess-container { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; align-items: center; scroll-behavior: smooth;}
+        .keyboard-wrapper { flex-shrink: 0; padding: 15px 10px; border-top: 1px solid var(--border-color); background: var(--card-bg); }
 
-			function winGame() {
-				isGameOver = true;
-				const winMsg = document.getElementById("win-message");
-				winMsg.innerText = `恭喜通关！您仅用了 ${step} 步猜出答案！`;
-				winMsg.style.display = "block";
-				startFireworks();
-			}
+        .guess-card { border: 1px solid var(--border-color); background-color: var(--card-bg); box-shadow: 0 2px 4px var(--shadow-color); margin: 6px auto; padding: 8px; width: min-content; white-space: nowrap; border-radius: 8px; display: flex; }
+        .guess-card-current { border-color: #00AAFF; box-shadow: 0 0 8px rgba(0, 170, 255, 0.4); }
+        .color-block { width: 32px; height: 32px; margin: 0 4px; display: inline-block; background-color: var(--empty-bg); border-radius: 4px; transition: background-color 0.2s, transform 0.1s, opacity 0.2s; }
+        .color-under { width: 32px; height: 6px; margin: 0 4px; display: inline-block; border-radius: 3px; background-color: var(--empty-bg); transition: 0.2s;}
+        .color-dot { width: 6px; height: 6px; display: inline-block; border-radius: 3px; background-color: var(--empty-bg); margin: 2px; }
+        .container-color-block { display: flex; align-items: center; justify-content: center; }
 
-			function colorSelect(type)
-			{
-				if (isGameOver) return;
+        .dot0 { margin-top: 8px; margin-left: 8px; }
+        .dot1 { margin-top: 8px; margin-left: 8px; }
+        .dot2 { margin-top: 22px; margin-left: -20px; }
+        .dot3 { margin-top: 22px; margin-left: 8px; }
 
-				const guessCard = document.querySelector(".guess-card-current");
-				if (!guessCard) return;
+        .control-btn { background-color: var(--control-bg); color: var(--text-color); line-height: 32px; text-align: center; font-size: 20px; cursor: pointer; user-select: none; }
+        .keyboard-area { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        
+        @media (max-width: 768px) { 
+            .color-block {width: 28px; height: 28px;} .color-under{width: 28px;} .control-btn {line-height: 28px;} 
+            .game-panel { margin: 5px; } .keyboard-wrapper { padding-bottom: 20px; }
+        }
 
-				if (type >= 0 && type <= 7)
-				{
-					if (status >= 4)
-						return;
-					for (let i = 0; i < status; i++)
-					{
-						if (guess[i] === type)
-							return;
-					}
-					const colorList = guessCard.children[0].children[0].children;
-					colorList[status].style.backgroundColor = color[type];
-					guess[status] = type;
-					status++;
-				}
-				else if (type === 8)
-				{
-					if (status === 0)
-						return;
-					const colorList = guessCard.children[0].children[0].children;
-					colorList[--status].style.backgroundColor = ""; 
-				}
-				else if (type === 9)
-				{
-					if (status !== 4) return;
+        /* 模态框与组件 */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px);}
+        .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; width: 92%; max-width: 480px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .modal-content h2 { margin-top: 0; text-align: center; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;}
+        
+        details { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 5px; margin-bottom: 15px; padding: 5px 10px; }
+        summary { cursor: pointer; font-weight: bold; outline: none; padding: 5px 0; color: var(--primary); }
+        .emoji-content { white-space: pre-wrap; font-size: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-color); line-height: 1.5; }
 
-					let greens = 0;
-					let oranges = 0;
+        .store-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border-color); margin-bottom: 10px; border-radius: 8px; background: var(--bg-color); }
+        
+        .ad-banner { margin: 20px 10px; padding: 15px; background: var(--control-bg); border-radius: 8px; text-align: center; border: 1px dashed var(--text-muted); font-size: 13px; color: var(--text-muted); cursor: pointer; transition: 0.2s;}
+        .ad-banner:hover { opacity: 0.8; border-color: var(--primary); color: var(--primary); }
+        
+        .heatmap-row { display: flex; align-items: center; font-size: 12px; margin: 4px 0; }
+        .heatmap-bar { background: var(--primary); height: 16px; min-width: 5px; margin-left: 8px; border-radius: 2px; text-align: right; color: white; font-size: 10px; padding-right: 4px; line-height: 16px;}
 
-					for (let i = 0; i < 4; i++) {
-						if (guess[i] === answer[i]) {
-							greens++;
-						} else if (answer.includes(guess[i])) {
-							oranges++;
-						}
-					}
+        /* 特效动画 */
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.18); } 100% { transform: scale(1); } }
+        .anim-pop { animation: pop 0.2s ease-out forwards; }
 
-					if (difficulty === 0) // Easy Mode
-					{
-						const colorList = guessCard.children[0].children[1].children;
-						for (let i = 0; i < 4; i++)
-						{
-							if (guess[i] === answer[i]) {
-										colorList[i].style.backgroundColor = "#00AA00";
-							} else if (answer.includes(guess[i])) {
-										colorList[i].style.backgroundColor = "#FFAA00";
-							} else {
-								colorList[i].style.backgroundColor = "";
-							}
-						}
-					}
-					else
-					{
-						const colorList = guessCard.children[1].children;
-						let idx = 0;
-						for (let i = 0; i < greens; i++) colorList[idx++].style.backgroundColor = "#00AA00";
-						for (let i = 0; i < oranges; i++) colorList[idx++].style.backgroundColor = "#FFAA00";
-					}
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 20%, 60% {transform: translateX(-5px);} 40%, 80% {transform: translateX(5px);} }
+        .anim-shake { animation: shake 0.4s ease-in-out forwards; border-color: var(--danger) !important; box-shadow: 0 0 5px var(--danger) !important; }
+        
+        @keyframes timerShake { 0%, 100% {transform: translateX(0); color: var(--danger);} 25% {transform: translateX(-5px); color: var(--danger);} 75% {transform: translateX(5px); color: var(--danger);} }
+        .timer-penalty { animation: timerShake 0.4s forwards; }
 
-					status = 0;
-					guessCard.classList.remove("guess-card-current");
-					step++;
+        @keyframes floatUpFade { 0% { opacity: 1; top: 0px; } 100% { opacity: 0; top: -30px; } }
+        .floating-text { position: absolute; left: 50%; top: -10px; transform: translateX(-50%); font-size: 16px; font-weight: bold; pointer-events: none; animation: floatUpFade 1s ease-out forwards; text-shadow: 0 1px 2px rgba(0,0,0,0.5); z-index: 10;}
 
-					if (greens === 4) {
-						winGame();
-					} else {
-						nextGuess();
-					}
+        #fireworks { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; display: none; }
+    </style>
+</head>
+<body>
+<canvas id="fireworks"></canvas>
+<div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content" id="modal-content"></div>
+</div>
 
-					setTimeout(() => {
-						window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-					}, 100);
-				}
-			}
-		</script>
-	</head>
-	<body>
-		<canvas id="fireworksCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; display:none;"></canvas>
+<div id="app-container">
 
-		<div id="top-container">
-			<div class="header-bar">
-				<h1 id="wordle" onclick="clickWordle()" title="点击重置">WORDLE</h1>
-				<div id="theme-toggle" onclick="toggleTheme()" title="切换深色/浅色模式">◐</div>
-			</div>
-			
-			<div class="box-card">
-				<button id="button-easy" type="button" class="button-diff-select" onclick="diffButton(0)">EASY / 简单</button>
-				<button id="button-hard" type="button" class="button-diff" onclick="diffButton(1)">HARD / 困难</button>
-				<button id="button-reset" type="button" class="button-reset" onclick="clickWordle()">RESET / 重置游戏</button>
-				<br/>
-				<div id="introduce-easy" style="margin-top: 10px; line-height: 1.6;">
-					系统从八个颜色中随机选择四个不同的颜色，你需要猜出系统选择的颜色和顺序。<br/>
-					你的每次猜测必须是按顺序给出的四种颜色。<br/>
-					给出猜测后你会得到本次猜测的结果：哪些颜色存在，但位置不正确，哪些颜色位置正确。<br/>
-					<div class="guess-card" style="display: flex; margin: 10px 0;">
-						<span style="display: inline-block">
-							<span class="container-color-block">
-								<span class="color-block" style="background-color: #AA00AA"></span>
-								<span class="color-block" style="background-color: #00AAAA"></span>
-								<span class="color-block" style="background-color: #0000AA"></span>
-								<span class="color-block" style="background-color: #AA0000"></span>
-							</span>
-							<span class="container-color-block" style="margin-top: 5px">
-								<span class="color-under" style="background-color: #00AA00"></span>
-								<span class="color-under" style="background-color: #FFAA00"></span>
-								<span class="color-under"></span>
-								<span class="color-under"></span>
-							</span>
-						</span>
-						<span style="display: flex;">
-							<span class="color-dot dot0"></span>
-							<span class="color-dot dot1"></span>
-							<span class="color-dot dot2"></span>
-							<span class="color-dot dot3"></span>
-						</span>
-					</div>
-					颜色块下方的颜色条表示此颜色的猜测结果：
-					<br/>
-					<span style="color: #00AA00; font-weight: bold;">绿色</span>表示颜色正确且位置正确。
-					<br/>
-					<span style="color: #FFAA00; font-weight: bold;">橙色</span>表示颜色正确但位置不正确。
-					<br/>
-					<span style="color: var(--text-muted); font-weight: bold;">灰色</span>表示颜色不正确。
-				</div>
-				<div id="introduce-hard" style="display: none; margin-top: 10px; line-height: 1.6;">
-					系统从八个颜色中随机选择四个不同的颜色，你需要猜出系统选择的颜色和顺序。<br/>
-					你的每次猜测必须是按顺序给出的四种颜色。<br/>
-					给出猜测后你会得到本次猜测的结果：哪些颜色存在，但位置不正确，哪些颜色位置正确。<br/>
-					<div class="guess-card" style="display: flex; margin: 10px 0;">
-						<span style="display: inline-block">
-							<span class="container-color-block">
-								<span class="color-block" style="background-color: #AA00AA"></span>
-								<span class="color-block" style="background-color: #00AAAA"></span>
-								<span class="color-block" style="background-color: #0000AA"></span>
-								<span class="color-block" style="background-color: #AA0000"></span>
-							</span>
-							<span class="container-color-block" style="margin-top: 5px">
-								<span class="color-under"></span>
-								<span class="color-under"></span>
-								<span class="color-under"></span>
-								<span class="color-under"></span>
-							</span>
-						</span>
-						<span style="display: flex;">
-							<span class="color-dot dot0" style="background-color: #00AA00"></span>
-							<span class="color-dot dot1" style="background-color: #FFAA00"></span>
-							<span class="color-dot dot2"></span>
-							<span class="color-dot dot3"></span>
-						</span>
-					</div>
-					颜色块右方的颜色点表示本次猜测的数量结果：
-					<br/>
-					<span style="color: #00AA00; font-weight: bold;">绿色</span>表示颜色正确且位置正确。
-					<br/>
-					<span style="color: #FFAA00; font-weight: bold;">橙色</span>表示颜色正确但位置不正确。
-					<br/>
-					<span style="color: var(--text-muted); font-weight: bold;">灰色</span>表示颜色不正确。
-					<br/>
-					<span style="font-weight: bold;">上述例子仅表示猜对了两个颜色，其中一个位置正确。</span>
-				</div>
-			</div>
+    <!-- ================= 开屏页 ================= -->
+    <div id="screen-home" class="screen active">
+        <div class="header-bar header-home">
+            <div class="header-icon icon-left" onclick="UI.showRules()" title="规则说明">ℹ️</div>
+            <h1 class="header-title">WORDLE NG</h1>
+            <div class="header-actions">
+                <a href="https://github.com/MeiVinEight/Wordle" target="_blank" title="GitHub 仓库 - 作者 MeiVinEight">
+                    <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                </a>
+                <div class="theme-toggle" onclick="toggleTheme()" title="切换深浅色">◐</div>
+            </div>
+        </div>
+        
+        <div id="home-scroll-area">
+            <div class="box-card">
+                <!-- 玩家设置区 -->
+                <div class="setting-row">
+                    <span style="font-weight:bold; font-size:14px; width:45px;">P1</span>
+                    <input type="text" id="input-p1-name" maxlength="10" placeholder="P1昵称">
+                    <button class="dice-btn" onclick="App.randomName('p1')" title="随机">🎲</button>
+                    <div class="score-badge" onclick="UI.showStats('p1')">统计</div>
+                </div>
+                
+                <div class="setting-row" style="margin: 15px 0;">
+                    <span style="font-size:14px; font-weight:bold; width:45px;">玩家数</span>
+                    <div class="toggle-group">
+                        <div class="toggle-btn active" id="mode-1p" onclick="App.setPlayMode(1)">孤军奋战</div>
+                        <div class="toggle-btn" id="mode-2p" onclick="App.setPlayMode(2)">双人成行</div>
+                    </div>
+                </div>
 
-			<div id="win-message" class="box-card"></div>
+                <div class="setting-row hidden" id="row-p2">
+                    <span style="font-weight:bold; font-size:14px; width:45px;">P2</span>
+                    <input type="text" id="input-p2-name" maxlength="10" placeholder="P2昵称">
+                    <button class="dice-btn" onclick="App.randomName('p2')" title="随机">🎲</button>
+                    <div class="score-badge" onclick="UI.showStats('p2')">统计</div>
+                </div>
 
-			<div id="guess-container" class="box-card">
-				<div style="display: block flex; margin: 0 auto; width: min-content; padding-bottom: 10px;">
-					<span class="color-block" style="background-color: #AA0000; cursor: pointer;" onclick="colorSelect(0)"></span>
-					<span class="color-block" style="background-color: #00AA00; cursor: pointer;" onclick="colorSelect(1)"></span>
-					<span class="color-block" style="background-color: #0000AA; cursor: pointer;" onclick="colorSelect(2)"></span>
-					<span class="color-block" style="background-color: #FFAA00; cursor: pointer;" onclick="colorSelect(3)"></span>
-					<span class="color-block" style="background-color: #AA00AA; cursor: pointer;" onclick="colorSelect(4)"></span>
-					<span class="color-block" style="background-color: #FF00AA; cursor: pointer;" onclick="colorSelect(5)"></span>
-					<span class="color-block" style="background-color: #00AAAA; cursor: pointer;" onclick="colorSelect(6)"></span>
-					<span class="color-block" style="background-color: #00AAFF; cursor: pointer;" onclick="colorSelect(7)"></span>
-					<span class="color-block control-btn" onclick="colorSelect(8)">&larr;</span>
-					<span class="color-block control-btn" onclick="colorSelect(9)">&crarr;</span>
-				</div>
-				<div id="guess-card-template" class="guess-card" style="display: none;">
-					<span style="display: inline-block">
-						<span class="container-color-block">
-							<span class="color-block"></span>
-							<span class="color-block"></span>
-							<span class="color-block"></span>
-							<span class="color-block"></span>
-						</span>
-						<span class="container-color-block" style="margin-top: 5px">
-							<span class="color-under"></span>
-							<span class="color-under"></span>
-							<span class="color-under"></span>
-							<span class="color-under"></span>
-						</span>
-					</span>
-					<span style="display: flex;">
-						<span class="color-dot dot0"></span>
-						<span class="color-dot dot1"></span>
-						<span class="color-dot dot2"></span>
-						<span class="color-dot dot3"></span>
-					</span>
-				</div>
-			</div>
-		</div>
 
-		<script>
-			let fwCanvas, fwCtx, particles =[], fwActive = false;
+                <!-- 滑杆控制区 -->
+                <div class="setting-row">
+                    <span style="font-size:14px; font-weight:bold; width:45px;">模式</span>
+                    <div class="toggle-group">
+                        <div class="toggle-btn active" id="hint-easy" onclick="App.setHintType('easy')">Easy</div>
+                        <div class="toggle-btn" id="hint-hard" onclick="App.setHintType('hard')">Hard</div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <span style="font-size:14px; font-weight:bold; width:45px;">难度</span>
+                    <input type="range" id="slider-diff" min="0" max="4" step="1" value="1" oninput="App.updateDiffLabel()">
+                </div>
+                <div style="text-align:center; color:var(--danger); font-size:13px; margin-bottom:10px; font-weight:bold;" id="label-diff"></div>
+                
+                <!-- 自定义参数 -->
+                <div class="custom-param-box hidden" id="custom-params">
+                    颜色: <input type="number" id="cus-colors" min="4" max="9" value="8" style="width:45px; padding:4px;"> 
+                    槽位: <input type="number" id="cus-slots" min="3" max="8" value="4" style="width:45px; padding:4px;"> 
+                    步数: <input type="number" id="cus-guesses" min="5" max="99" value="10" style="width:45px; padding:4px;">
+                </div>
 
-			function initFireworks() {
-				fwCanvas = document.getElementById('fireworksCanvas');
-				fwCtx = fwCanvas.getContext('2d');
-				window.addEventListener('resize', () => {
-					if (fwCanvas) {
-						fwCanvas.width = window.innerWidth;
-						fwCanvas.height = window.innerHeight;
-					}
-				});
-				fwCanvas.width = window.innerWidth;
-				fwCanvas.height = window.innerHeight;
-			}
+                <div class="setting-row" style="justify-content: center; font-size:13px;">
+                    <label style="cursor:pointer; user-select:none; font-weight:bold;">
+                        <input type="checkbox" id="check-repeat" style="vertical-align:middle;"> 重复色模式
+                    </label>
+                </div>
 
-			function startFireworks() {
-				if (!fwCanvas) initFireworks();
-				fwCanvas.style.display = 'block';
-				fwActive = true;
-				animateFireworks();
-			}
+                <hr style="border:0; border-top:1px dashed var(--border-color); margin:15px 0;" />
 
-			function stopFireworks() {
-				fwActive = false;
-				if (fwCanvas) {
-					fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
-					particles =[];
-					fwCanvas.style.display = 'none';
-				}
-			}
+                <!-- 开始游戏按钮群 -->
+                <div class="btn-grid">
+                    <button class="button-std" id="btn-classic" style="border-color:var(--primary); color:var(--primary);" onclick="App.openClassicModal()">
+                        闯关模式<br><span style="font-size:10px;font-weight:normal;">进度: 第 <span id="ui-level">1</span> 关</span>
+                    </button>
+                    <button class="button-std" id="btn-daily" onclick="App.startGame('daily')">
+                        每日挑战<br><span style="font-size:10px;font-weight:normal;">与全球玩家解谜</span>
+                    </button>
+                    <button class="button-std" id="btn-challenge" onclick="App.startGame('challenge')">
+                        挑战模式<br><span style="font-size:10px;font-weight:normal;">步步为营</span>
+                    </button>
+                    <button class="button-std" id="btn-speedrun" onclick="App.startGame('speedrun')">
+                        竞速模式<br><span style="font-size:10px;font-weight:normal;">奖罚机制</span>
+                    </button>
+                    <button class="button-std" id="btn-casual" style="grid-column: span 2;" onclick="App.startGame('casual')">
+                        休闲模式<br><span style="font-size:10px;font-weight:normal;">自由探索</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-			function createFirework() {
-				const x = Math.random() * fwCanvas.width;
-				const y = Math.random() * fwCanvas.height * 0.5;
-				const colors = ['#FF5252', '#FFD740', '#69F0AE', '#40C4FF', '#E040FB'];
-				const color = colors[Math.floor(Math.random() * colors.length)];
-				
-				for (let i = 0; i < 60; i++) {
-					const angle = Math.random() * Math.PI * 2;
-					const speed = Math.random() * 6 + 1;
-					particles.push({
-						x: x,
-						y: y,
-						vx: Math.cos(angle) * speed,
-						vy: Math.sin(angle) * speed,
-						life: Math.random() * 30 + 50,
-						color: color,
-						size: Math.random() * 3 + 1
-					});
-				}
-			}
+    <!-- ================= 局内对战页 ================= -->
+    <div id="screen-game" class="screen">
+        <div class="header-bar header-game">
+            <span class="header-icon icon-left" style="position:relative; left:0;" onclick="UI.showHome()">←</span>
+            <span id="ui-game-title" style="flex:1; text-align:center; padding:0 5px;" onclick="Game.cheatClick()"></span>
+            <div class="header-actions" style="position:relative; right:0;">
+                <span class="theme-toggle" onclick="toggleTheme()">◐</span>
+            </div>
+        </div>
 
-			function animateFireworks() {
-				if (!fwActive) return;
-				requestAnimationFrame(animateFireworks);
-				
-				fwCtx.globalCompositeOperation = 'destination-out';
-				fwCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-				fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
-				fwCtx.globalCompositeOperation = 'lighter';
-				
-				if (Math.random() < 0.05) createFirework();
-				
-				for (let i = particles.length - 1; i >= 0; i--) {
-					let p = particles[i];
-					p.x += p.vx;
-					p.y += p.vy;
-					p.vy += 0.08;
-					p.life--;
-					
-					fwCtx.fillStyle = p.color;
-					fwCtx.beginPath();
-					fwCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-					fwCtx.fill();
-					
-					if (p.life <= 0) particles.splice(i, 1);
-				}
-			}
+        <div class="game-panel">
+            <div class="game-header-info">
+                <div style="position:relative;" id="timer-wrapper">
+                    <span id="ui-timer" style="color:var(--text-color);">⏱ --:--</span>
+                </div>
+                <span id="ui-guesses">👟 ∞</span>
+                <div>
+                    <button class="button-std" style="background-color:var(--danger);color:white;padding:4px 8px; font-size:12px; display:inline;" onclick="App.resetGame()">重玩</button>
+                    <button class="button-std" style="background-color:var(--gold);color:#000;padding:4px 8px; font-size:12px; display:inline;" onclick="UI.openStore()">商店</button>
+                </div>
+            </div>
 
-			clickWordle();
-		</script>
-	</body>
+            <div id="guess-container"></div>
+            
+            <div class="keyboard-wrapper">
+                <div class="keyboard-area" id="keyboard"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 音效引擎 ---
+    const AudioEngine = {
+        ctx: null,
+        init() {
+            if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+        },
+        playTone(freq, type, duration, vol=0.1) {
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + duration);
+        },
+        playClick() { this.playTone(800, 'sine', 0.08, 0.05); },
+        playBackspace() { this.playTone(300, 'square', 0.1, 0.05); },
+        playError() { this.playTone(150, 'sawtooth', 0.2, 0.1); },
+        playSuccess() { this.playTone(523.25, 'square', 0.1, 0.1); setTimeout(()=>this.playTone(783.99, 'square', 0.2, 0.1), 100); },
+        playLose() { this.playTone(300, 'sawtooth', 0.4, 0.1); },
+        async playMorseCode(answerArray) {
+            const morseMap = [".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."];
+            const sleep = ms => new Promise(r => setTimeout(r, ms));
+            for (let idx of answerArray) {
+                let code = morseMap[idx];
+                for (let char of code) {
+                    let dur = char === '.' ? 0.08 : 0.24;
+                    this.playTone(600, 'square', dur, 0.1);
+                    await sleep(dur * 1000 + 50);
+                }
+                await sleep(300);
+            }
+        }
+    };
+    document.body.addEventListener('pointerdown', () => AudioEngine.init(), { once: true });
+
+    // --- 烟花动画系统 ---
+    let fwCanvas, fwCtx, particles =[], fwActive = false, fwTimer = null;
+    function startFireworks() {
+        fwCanvas = document.getElementById('fireworks'); fwCtx = fwCanvas.getContext('2d');
+        fwCanvas.width = window.innerWidth; fwCanvas.height = window.innerHeight;
+        fwCanvas.style.display = 'block'; fwActive = true; animateFireworks();
+        clearTimeout(fwTimer);
+        fwTimer = setTimeout(stopFireworks, 5000);
+    }
+    function stopFireworks() { fwActive = false; if (fwCanvas) { fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height); particles =[]; fwCanvas.style.display = 'none'; } }
+    function animateFireworks() {
+        if (!fwActive) return; requestAnimationFrame(animateFireworks);
+        fwCtx.globalCompositeOperation = 'destination-out'; fwCtx.fillStyle = 'rgba(0,0,0,0.1)'; fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
+        fwCtx.globalCompositeOperation = 'lighter';
+        if (Math.random() < 0.1) {
+            const x = Math.random() * fwCanvas.width; const y = Math.random() * fwCanvas.height * 0.5;
+            const c = COLORS[Math.floor(Math.random() * COLORS.length)];
+            for (let i = 0; i < 40; i++) {
+                const a = Math.random() * Math.PI * 2; const s = Math.random() * 5 + 1;
+                particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, life: Math.random()*30+30, color: c, size: Math.random()*3+1 });
+            }
+        }
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
+            fwCtx.fillStyle = p.color; fwCtx.beginPath(); fwCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2); fwCtx.fill();
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    // --- PRNG ---
+    function seededRandom(seed) {
+        let x = Math.sin(seed++) * 10000;
+        return x - Math.floor(x);
+    }
+
+    // --- 数据模型 ---
+    const COLORS = ["#AA0000", "#00AA00", "#0000AA", "#FFAA00", "#AA00AA", "#FF00AA", "#00AAAA", "#00AAFF", "#556B2F"];
+    const DIFF_LEVELS =[
+        { name: "简单", c: 6, s: 4, g: 10 }, { name: "标准", c: 8, s: 4, g: 10 },
+        { name: "困难", c: 8, s: 5, g: 10 }, { name: "大师", c: 9, s: 6, g: 12 },
+        { name: "自定义", c: 8, s: 4, g: 10 }
+    ];
+    let autoContinueTimerId = null;
+
+    const UserData = {
+        p1: { name: 'Player1', coins: 200, played: 0, wins: 0, streak: 0, maxStreak: 0, classicLevel: 1, history: Array(20).fill(0) },
+        p2: { name: 'Player2', coins: 200, played: 0, wins: 0, streak: 0, maxStreak: 0, history: Array(20).fill(0) },
+        turn2P: 0, dailyPlayed: '',
+        load() { let d = localStorage.getItem('mm_data_full_v2'); if(d) Object.assign(this, JSON.parse(d)); },
+        save() { localStorage.setItem('mm_data_full_v2', JSON.stringify(this)); }
+    };
+
+    // --- 应用控制与设置解析 ---
+    const App = {
+        playMode: 1, hintType: 'easy',
+        init() {
+            UserData.load();
+            document.getElementById('input-p1-name').value = UserData.p1.name;
+            document.getElementById('input-p2-name').value = UserData.p2.name;
+            document.getElementById('input-p1-name').addEventListener('change', (e)=>{ UserData.p1.name=e.target.value.trim()||"Player1"; UserData.save(); });
+            document.getElementById('input-p2-name').addEventListener('change', (e)=>{ UserData.p2.name=e.target.value.trim()||"Player2"; UserData.save(); });
+            this.updateDiffLabel(); this.setPlayMode(1); this.updateHomeUI();
+        },
+        updateHomeUI() {
+            document.getElementById('ui-level').innerText = UserData.p1.classicLevel;
+        },
+        setPlayMode(m) {
+            this.playMode = m;
+            document.getElementById('mode-1p').className = m===1 ? 'toggle-btn active' : 'toggle-btn';
+            document.getElementById('mode-2p').className = m===2 ? 'toggle-btn active' : 'toggle-btn';
+            
+            if(m===1) {
+                document.getElementById('row-p2').classList.add('hidden');
+                document.getElementById('btn-classic').disabled = false;
+                document.getElementById('btn-daily').disabled = false;
+                document.getElementById('btn-speedrun').disabled = false;
+                document.getElementById('btn-casual').disabled = false;
+            } else {
+                document.getElementById('row-p2').classList.remove('hidden');
+                document.getElementById('btn-classic').disabled = true;
+                document.getElementById('btn-daily').disabled = true;
+                document.getElementById('btn-speedrun').disabled = true;
+                document.getElementById('btn-casual').disabled = true;
+            }
+        },
+        setHintType(h) {
+            this.hintType = h;
+            document.getElementById('hint-easy').className = h==='easy' ? 'toggle-btn active' : 'toggle-btn';
+            document.getElementById('hint-hard').className = h==='hard' ? 'toggle-btn active' : 'toggle-btn';
+        },
+        updateDiffLabel() {
+            let val = parseInt(document.getElementById('slider-diff').value);
+            let d = DIFF_LEVELS[val];
+            if(val === 4) {
+                document.getElementById('label-diff').innerText = `【${d.name}】 开启高级自定义参数`;
+                document.getElementById('custom-params').classList.remove('hidden');
+            } else {
+                document.getElementById('label-diff').innerText = `【${d.name}】 ${d.c}色 · ${d.s}槽 · ${d.g}次机会`;
+                document.getElementById('custom-params').classList.add('hidden');
+            }
+        },
+        randomName(p) {
+            const names = ["暗影刺客", "白昼法师", "量子飞客", "孤狼猎手", "狂战士", "代码诗人"];
+            UserData[p].name = names[Math.floor(Math.random()*names.length)] + Math.floor(Math.random()*100);
+            document.getElementById(`input-${p}-name`).value = UserData[p].name; UserData.save();
+        },
+        getGameConfig() {
+            let diffVal = parseInt(document.getElementById('slider-diff').value);
+            let c, s, g;
+            if(diffVal === 4) {
+                c = Math.max(4, Math.min(9, parseInt(document.getElementById('cus-colors').value)));
+                s = Math.max(3, Math.min(8, parseInt(document.getElementById('cus-slots').value)));
+                g = Math.max(5, Math.min(99, parseInt(document.getElementById('cus-guesses').value)));
+            } else {
+                c = DIFF_LEVELS[diffVal].c; s = DIFF_LEVELS[diffVal].s; g = DIFF_LEVELS[diffVal].g;
+            }
+            return { c, s, g };
+        },
+        openClassicModal() {
+            let maxLvl = UserData.p1.classicLevel;
+            let html = `
+                <h2> 闯关模式 </h2>
+                <div style="text-align:center; margin-bottom: 20px;">
+                    <p style="color:var(--text-muted); font-size:14px; text-align:left;">您可随时重温已解锁的关卡，系统可能在某些条件下眷顾玩家哦</p>
+                    <p>当前进度：<b style="font-size:20px; color:var(--primary);">${maxLvl}</b></p>
+                    <div style="display:flex; justify-content:center; align-items:center; gap:10px;">
+                        <span style="font-weight:bold;">选择关卡：</span>
+                        <input type="number" id="modal-level-input" min="1" max="${maxLvl}" value="${maxLvl}" style="width:80px; text-align:center; font-size:18px; font-weight:bold;">
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="button-std" style="flex:1;" onclick="UI.closeModal()">取消</button>
+                    <button class="button-std button-primary" style="flex:1;" onclick="App.startClassicFromModal()">开始游戏</button>
+                </div>
+            `;
+            UI.showModal(html);
+        },
+        startClassicFromModal() {
+            let lvl = parseInt(document.getElementById('modal-level-input').value);
+            if(lvl >= 1 && lvl <= UserData.p1.classicLevel) {
+                UI.closeModal();
+                this.startGame('classic', lvl);
+            } else {
+                alert(`请输入有效的关卡号 (1 - ${UserData.p1.classicLevel})`);
+            }
+        },
+        startGame(mode, classicLvl = null) {
+            let {c, s, g} = this.getGameConfig();
+            let cfg = { 
+                mode: mode, is2P: this.playMode === 2 && mode==='challenge',
+                c: c, s: s, g: g, 
+                hintType: this.hintType, repeat: document.getElementById('check-repeat').checked, t: 180
+            };
+
+            if (mode === 'classic') {
+                cfg.is2P = false; cfg.repeat = false; // 经典模式不可重复
+                cfg.classicLevel = classicLvl || UserData.p1.classicLevel;
+                Game.start(cfg);
+            } 
+            else if (mode === 'daily') {
+                let today = new Date().toISOString().slice(0,10);
+                if (UserData.dailyPlayed === today) return alert("今日挑战已完成，请明天再来！");
+                cfg.is2P = false; 
+                // 利用当前设定生成唯一种子
+                let seedStr = today.replace(/-/g, '') + cfg.c + cfg.s + (cfg.repeat?1:0);
+                let seed = parseInt(seedStr);
+                Game.start(cfg, Game.generateAnswer(cfg, seed));
+            }
+            else if (mode === 'challenge') {
+                if(cfg.is2P) UI.openVSSetup(cfg); else Game.start(cfg);
+            }
+            else if (mode === 'speedrun') {
+                cfg.is2P = false; cfg.g = 999;
+                Game.start(cfg, null, 0); 
+            }
+            else if (mode === 'casual') {
+                cfg.is2P = false; cfg.t = 0; cfg.g = 9999;
+                Game.start(cfg);
+            }
+        },
+        resetGame() {
+            if(Game.config.is2P) UI.openVSSetup(Game.config);
+            else if(Game.config.mode === 'classic') {
+                this.startGame('classic', Game.config.classicLevel);
+            }
+            else if(Game.config.mode === 'daily') {
+                alert("你已经完成今日挑战啦，请明天再来");
+                UI.showHome();
+            }
+            else Game.start(Game.config, null, Game.config.mode === 'speedrun' ? 0 : null);
+        }
+    };
+
+    // --- 游戏核心逻辑 ---
+    const Game = {
+        config: {},
+        state: { active: false, answer:[], guesses:[], currentInput:[], timeLeft: 0, timerId: null, disabledColors:[], itemsUsed:{}, cheatClicks:0, speedrunWins:0 },
+
+        start(cfg, customAnswer = null, speedrunWins = 0) {
+            this.config = cfg;
+            if (this.state && this.state.timerId) clearInterval(this.state.timerId);
+            this.state = {
+                active: true, cheatClicks: 0, speedrunWins: speedrunWins,
+                answer: customAnswer || this.generateAnswer(this.config),
+                guesses: [], currentInput:[], timeLeft: this.config.t, 
+                disabledColors:[], itemsUsed: { hint: false, time: false, guess: false }
+            };
+            
+            UI.showGameScreen();
+            this.startTimer();
+
+            // 经典模式 5 的倍数且是乱序时，提供开局初始福利提示
+            if (this.config.mode === 'classic' && this.config.classicLevel >= 5 && this.config.classicLevel % 5 === 0 && this.config.hintType === 'hard') {
+                setTimeout(() => {
+                    for (let i = 0; i < this.config.s; i++) {
+                        let available = Array.from({length: this.config.c}, (_, idx) => idx);
+                        this.state.currentInput.push(available[Math.floor(Math.random() * available.length)]);
+                    }
+                    this.inputSubmit(true);
+                }, 500);
+            }
+        },
+
+        generateAnswer(cfg, seed = null) {
+            let ans =[]; let available = Array.from({length: cfg.c}, (_, i) => i);
+            let currentSeed = seed;
+            for (let i = 0; i < cfg.s; i++) {
+                let r;
+                if (currentSeed !== null) {
+                    r = Math.floor(seededRandom(currentSeed) * available.length);
+                    currentSeed++;
+                } else {
+                    r = Math.floor(Math.random() * available.length);
+                }
+                ans.push(available[r]); 
+                if (!cfg.repeat) available.splice(r, 1);
+            }
+            return ans;
+        },
+
+        startTimer() {
+            clearInterval(this.state.timerId); UI.renderHeaderState();
+            if (this.config.t === 0) return;
+            this.state.timerId = setInterval(() => {
+                if (!this.state.active) return clearInterval(this.state.timerId);
+                this.state.timeLeft--; UI.renderHeaderState();
+                if (this.state.timeLeft <= 0) this.endGame(false, "⏰ 时间耗尽！");
+            }, 1000);
+        },
+
+        inputColor(cIdx) {
+            if (!this.state.active || this.state.currentInput.length >= this.config.s) return;
+            if (this.state.disabledColors.includes(cIdx)) return;
+            if (!this.config.repeat && this.state.currentInput.includes(cIdx)) {
+                let el = document.getElementById('key-'+cIdx);
+                el.classList.remove('anim-shake'); void el.offsetWidth; el.classList.add('anim-shake');
+                setTimeout(() => el.classList.remove('anim-shake'), 400);
+                return;
+            }
+            AudioEngine.playClick();
+            this.state.currentInput.push(cIdx); UI.renderBoard();
+        },
+
+        inputBackspace() {
+            if (!this.state.active || this.state.currentInput.length === 0) return;
+            AudioEngine.playBackspace(); this.state.currentInput.pop(); UI.renderBoard();
+        },
+
+        inputSubmit(silent = false) {
+            if (!this.state.active || this.state.currentInput.length < this.config.s) return;
+
+            let greens = 0, oranges = 0;
+            let ansCopy = [...this.state.answer], guessCopy = [...this.state.currentInput];
+            let posDetail = Array(this.config.s).fill(0);
+
+            for (let i = 0; i < this.config.s; i++) {
+                if (guessCopy[i] === ansCopy[i]) { greens++; ansCopy[i] = -1; guessCopy[i] = -2; posDetail[i] = 1; }
+            }
+            for (let i = 0; i < this.config.s; i++) {
+                if (guessCopy[i] >= 0) {
+                    let idx = ansCopy.indexOf(guessCopy[i]);
+                    if (idx !== -1) { oranges++; ansCopy[idx] = -1; posDetail[i] = 2; }
+                }
+            }
+
+            this.state.guesses.push({ colors: [...this.state.currentInput], greens, oranges, posDetail });
+            this.state.currentInput =[];
+            UI.renderBoard(); UI.renderHeaderState();
+
+            let rowId = 'history-row-' + (this.state.guesses.length - 1);
+
+            // 竞速模式特殊接续
+            if (this.config.mode === 'speedrun') {
+                if (greens === this.config.s) {
+                    this.state.timeLeft += 30; this.state.speedrunWins++;
+                    UI.showFloatingText("+30s", "var(--primary)"); AudioEngine.playSuccess();
+                    this.state.answer = this.generateAnswer(this.config); this.state.guesses =[];
+                    UI.renderBoard(); UI.renderHeaderState();
+                } else {
+                    this.state.timeLeft = Math.max(0, this.state.timeLeft - 3);
+                    UI.triggerTimerPenalty(); UI.showFloatingText("-3s", "var(--danger)");
+                    if(!silent) {
+                        AudioEngine.playError();
+                        if (greens === 0 && oranges === 0) UI.shakeRow(rowId);
+                    }
+                    if (this.state.timeLeft === 0) this.endGame(false, `竞速结束！连破 ${this.state.speedrunWins} 局`);
+                }
+                return;
+            }
+
+            if (greens === this.config.s) this.endGame(true, "破解成功！");
+            else if (this.state.guesses.length >= this.config.g) this.endGame(false, "步数耗尽！");
+            else if (greens === 0 && oranges === 0) { 
+                if(!silent) { AudioEngine.playError(); UI.shakeRow(rowId); } 
+            }
+            else if(!silent) AudioEngine.playClick();
+        },
+
+        buyItem(type) {
+            const costs = { hint: 50, time: 30, guess: 40 };
+            let p = this.config.is2P ? UserData.p2 : UserData.p1;
+            if (p.coins < costs[type]) return alert("金币不足！");
+            p.coins -= costs[type]; this.state.itemsUsed[type] = true; UserData.save();
+
+            if (type === 'time') this.state.timeLeft += 60;
+            else if (type === 'guess') this.config.g += 3;
+            else if (type === 'hint') {
+                let av =[];
+                for(let i=0; i<this.config.c; i++) {
+                    if (!this.state.answer.includes(i) && !this.state.disabledColors.includes(i)) av.push(i);
+                }
+                if (av.length > 0) {
+                    this.state.disabledColors.push(av[Math.floor(Math.random()*av.length)]);
+                    UI.renderKeyboard();
+                }
+            }
+            UI.renderHeaderState(); AudioEngine.playSuccess(); UI.openStore();
+        },
+
+        cheatClick() {
+            if(!this.state.active) return;
+            this.state.cheatClicks++;
+            if(this.state.cheatClicks >= 5) {
+                alert("恭喜您发现了隐藏模式，答案就在某处...");
+                console.log(this.state.answer);
+            }
+        },
+
+        continueNext() {
+            if(this.config.mode === 'classic') App.startGame('classic', this.config.classicLevel);
+            else if(this.config.mode === 'daily') UI.showHome();
+            else App.startGame(this.config.mode);
+        },
+
+        endGame(isWin, title) {
+            this.state.active = false; clearInterval(this.state.timerId);
+            
+            let earned = 0;
+            if(this.state.cheatClicks < 5 && this.config.mode !== 'speedrun') {
+                let baseScore = (this.config.s * this.config.c) * 10;
+                let stepMulti = this.config.g === 999 ? 1 : (1 + (this.config.g - this.state.guesses.length)*0.1);
+                earned = isWin ? Math.floor(baseScore * stepMulti) : 10;
+                if(isWin && this.state.itemsUsed.hint) earned = Math.floor(earned * 0.7);
+                if(isWin && this.state.itemsUsed.time) earned = Math.floor(earned * 0.8);
+                if(isWin && this.state.itemsUsed.guess) earned = Math.floor(earned * 0.8);
+            }
+            
+            if(this.config.is2P) {
+                if(isWin) { UserData.p2.wins++; UserData.p2.coins += earned; } else { UserData.p1.wins++; UserData.p1.coins += 50; earned=0;}
+                UserData.p1.played++; UserData.p2.played++;
+                UserData.turn2P = 1 - UserData.turn2P; 
+            } else {
+                UserData.p1.played++;
+                if (isWin) {
+                    UserData.p1.wins++; UserData.p1.streak++;
+                    if(UserData.p1.streak > UserData.p1.maxStreak) UserData.p1.maxStreak = UserData.p1.streak;
+                    let step = Math.min(this.state.guesses.length, 20); UserData.p1.history[step-1]++;
+                    
+                    if (this.config.mode === 'classic' && this.config.classicLevel === UserData.p1.classicLevel) {
+                        UserData.p1.classicLevel++;
+                        this.config.classicLevel = UserData.p1.classicLevel;
+                    }
+                    if (this.config.mode === 'daily') UserData.dailyPlayed = new Date().toISOString().slice(0,10);
+                } else {
+                    UserData.p1.streak = 0;
+                }
+                UserData.p1.coins += earned;
+            }
+
+            UserData.save(); App.updateHomeUI();
+
+            if (isWin) { AudioEngine.playSuccess(); startFireworks(); } else AudioEngine.playLose();
+            
+            setTimeout(() => {
+                if(isWin) AudioEngine.playMorseCode(this.state.answer);
+                UI.showResultModal(isWin, title, earned);
+            }, 800);
+        }
+    };
+
+    // --- UI 渲染总管 ---
+    const UI = {
+        getPlayerPrefix(key) { return key === 'p1' ? 'P1 - ' : 'P2 - '; },
+        
+        showHome() {
+            clearTimeout(autoContinueTimerId); stopFireworks();
+            document.getElementById('screen-game').classList.remove('active');
+            document.getElementById('screen-home').classList.add('active');
+            if(Game.state && Game.state.timerId) clearInterval(Game.state.timerId);
+            App.updateHomeUI(); // Refresh levels
+        },
+
+        showGameScreen() {
+            clearTimeout(autoContinueTimerId); stopFireworks();
+            document.getElementById('screen-home').classList.remove('active');
+            document.getElementById('screen-game').classList.add('active');
+            
+            let pName = Game.config.is2P ? (UserData.turn2P===0 ? this.getPlayerPrefix('p2')+UserData.p2.name : this.getPlayerPrefix('p1')+UserData.p1.name) : this.getPlayerPrefix('p1')+UserData.p1.name;
+            let modeMap = {'classic':'闯关', 'daily':'每日挑战', 'challenge':'挑战', 'speedrun':'竞速', 'casual':'休闲'};
+            let modeTitle = Game.config.mode === 'classic' ? `闯关模式 第${Game.config.classicLevel}关` : modeMap[Game.config.mode];
+            document.getElementById('ui-game-title').innerText = `${pName} | ${modeTitle}`;
+            
+            this.renderKeyboard();
+            this.renderBoard();
+        },
+
+        renderKeyboard() {
+            let kb = '';
+            for (let i = 0; i < Game.config.c; i++) {
+                let isDis = Game.state.disabledColors.includes(i);
+                let style = `background-color: ${isDis ? 'var(--empty-bg)' : COLORS[i]}; opacity: ${isDis ? '0.3' : '1'}; cursor: ${isDis ? 'not-allowed' : 'pointer'};`;
+                kb += `<span class="color-block" id="key-${i}" style="${style}" onclick="${isDis ? '' : `Game.inputColor(${i})`}"></span>`;
+            }
+            kb += `<span class="color-block control-btn" onclick="Game.inputBackspace()">&larr;</span><span class="color-block control-btn" onclick="Game.inputSubmit()">&crarr;</span>`;
+            document.getElementById('keyboard').innerHTML = kb;
+        },
+
+        renderHeaderState() {
+            let timerEl = document.getElementById('ui-timer');
+            if (Game.config.t > 0 || Game.config.mode === 'speedrun') {
+                let m = Math.floor(Game.state.timeLeft / 60).toString().padStart(2, '0');
+                let s = (Game.state.timeLeft % 60).toString().padStart(2, '0');
+                timerEl.innerText = `⏱ ${m}:${s}`;
+            } else timerEl.innerText = `⏱ ∞`;
+
+            let left = Game.config.g === 999 ? '∞' : (Game.config.g - Game.state.guesses.length);
+            document.getElementById('ui-guesses').innerText = `👟 ${left}`;
+        },
+
+        renderBoard() {
+            const container = document.getElementById('guess-container'); container.innerHTML = '';
+            
+            Game.state.guesses.forEach((g, idx) => {
+                let row = `<div class="guess-card" id="history-row-${idx}"><span style="display:inline-block"><span class="container-color-block">`;
+                for (let i = 0; i < Game.config.s; i++) row += `<span class="color-block" style="background-color: ${COLORS[g.colors[i]]}"></span>`;
+                row += `</span>`;
+                
+                if (Game.config.hintType === 'easy') {
+                    row += `<span class="container-color-block" style="margin-top:5px">`;
+                    for (let i = 0; i < Game.config.s; i++) {
+                        let c = g.posDetail[i] === 1 ? '#00AA00' : (g.posDetail[i] === 2 ? '#FFAA00' : 'var(--empty-bg)');
+                        row += `<span class="color-under" style="background-color: ${c}"></span>`;
+                    }
+                    row += `</span>`;
+                }
+                row += `</span>`;
+
+                if (Game.config.hintType === 'hard') {
+                    row += `<span style="display:flex; flex-wrap:wrap; width:20px; align-content:center; justify-content:center; margin-left:10px;">`;
+                    let cG = g.greens, cO = g.oranges;
+                    for (let i = 0; i < Game.config.s; i++) {
+                        let dc = 'var(--empty-bg)';
+                        if (cG > 0) { dc = '#00AA00'; cG--; } else if (cO > 0) { dc = '#FFAA00'; cO--; }
+                        row += `<span class="color-dot" style="background-color: ${dc}"></span>`;
+                    }
+                    row += `</span>`;
+                }
+                row += `</div>`; container.innerHTML += row;
+            });
+
+            if (Game.state.active) {
+                let row = `<div class="guess-card guess-card-current" id="current-row"><span style="display:inline-block"><span class="container-color-block">`;
+                for (let i = 0; i < Game.config.s; i++) {
+                    let color = Game.state.currentInput[i] !== undefined ? COLORS[Game.state.currentInput[i]] : 'var(--empty-bg)';
+                    let isLast = i === Game.state.currentInput.length - 1;
+                    row += `<span class="color-block ${isLast?'anim-pop':''}" style="background-color: ${color}"></span>`;
+                }
+                row += `</span>`;
+                
+                if (Game.config.hintType === 'easy') {
+                    row += `<span class="container-color-block" style="margin-top:5px">`;
+                    for (let i = 0; i < Game.config.s; i++) row += `<span class="color-under"></span>`;
+                    row += `</span>`;
+                }
+                row += `</span>`;
+
+                if (Game.config.hintType === 'hard') {
+                    row += `<span style="display:flex; flex-wrap:wrap; width:20px; align-content:center; justify-content:center; margin-left:10px;">`;
+                    for (let i = 0; i < Game.config.s; i++) row += `<span class="color-dot"></span>`;
+                    row += `</span>`;
+                }
+                row += `</div>`; container.innerHTML += row;
+                setTimeout(()=> container.scrollTo({top: container.scrollHeight, behavior: 'smooth'}), 50);
+            }
+        },
+
+        shakeRow(rowId) { 
+            let r = document.getElementById(rowId || 'current-row'); 
+            if(r) { 
+                r.classList.remove('anim-shake'); void r.offsetWidth; r.classList.add('anim-shake'); 
+                setTimeout(() => r.classList.remove('anim-shake'), 400);
+            } 
+        },
+        triggerTimerPenalty() { let t = document.getElementById('timer-wrapper'); t.classList.remove('timer-penalty'); void t.offsetWidth; t.classList.add('timer-penalty'); },
+        showFloatingText(text, color) {
+            let el = document.createElement('div'); el.innerText = text; el.style.color = color; el.className = 'floating-text';
+            document.getElementById('timer-wrapper').appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        },
+
+        showModal(html) { document.getElementById('modal-content').innerHTML = html; document.getElementById('modal-overlay').classList.remove('hidden'); },
+        closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); },
+
+        showResultModal(isWin, title, earned) {
+            let ansHTML = `<div style="margin:15px 0;">`;
+            Game.state.answer.forEach(c => { ansHTML += `<span class="color-block" style="background-color:${COLORS[c]}; margin:0 2px;"></span>`; });
+            ansHTML += `</div>`;
+
+            let modeName = Game.config.mode === 'classic' ? `闯关模式 第${Game.config.classicLevel}关` : Game.config.mode === 'challenge' ? `挑战模式` : Game.config.mode === 'speedrun' ? `竞速模式` : Game.config.mode === 'daily' ? `每日挑战` : `休闲模式`;
+            let paramStr = `⚙️ ${Game.config.c}色·${Game.config.s}槽`;
+            if (Game.config.mode !== 'speedrun' && Game.config.mode !== 'casual') paramStr += `·${Game.config.g}步`;
+            paramStr += ` | ${Game.config.hintType === 'hard' ? '乱序' : '对位'} | ${Game.config.repeat ? '可重复' : '不重复'}`;
+
+            let emojiText = `🎨 Mastermind - ${modeName}\n${paramStr}\n战绩: ${Game.state.guesses.length}/${Game.config.g===999?'∞':Game.config.g}\n`;
+            Game.state.guesses.forEach(g => {
+                let r = ''; let cG = g.greens, cO = g.oranges;
+                for(let i=0; i<Game.config.s; i++) { if(cG>0){r+='🟩';cG--;} else if(cO>0){r+='🟨';cO--;} else r+='⬛'; }
+                emojiText += r + '\n';
+            });
+
+            let autoHtml = '';
+            if (isWin) {
+                autoHtml = `<div style="text-align:center; margin-top:10px; font-size:13px; font-weight:bold; color:var(--text-color);">将在 <span id="auto-continue-countdown" style="color:var(--danger);font-weight:bold;">8</span> 秒后自动进入下一局...</div>`;
+            }
+
+            let mainBtn = isWin ? 
+                `<button class="button-blue" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); Game.continueNext(); UI.closeModal();">▶ 继续下一局</button>` : 
+                `<button class="button-danger" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); App.resetGame(); UI.closeModal();">🔄 重新开始</button>`;
+
+            let html = `
+                <h2>${title}</h2>
+                <p style="text-align:center; margin:10px 0;">正确答案：</p>
+                <div style="text-align:center">${ansHTML}</div>
+                ${earned > 0 ? `<p style="text-align:center; font-weight:bold; color:var(--gold);">金币 +${earned} 🪙</p>` : ''}
+                
+                <details>
+                    <summary>查看回放</summary>
+                    <div class="emoji-content" id="emoji-content">${emojiText}</div>
+                    <button class="button-std" style="width:100%; margin-top:10px;" onclick="navigator.clipboard.writeText(document.getElementById('emoji-content').innerText);alert('复制成功！')">分享</button>
+                </details>
+                
+                ${autoHtml}
+                <div style="display:flex; gap:10px; margin-top:15px;">
+                    ${mainBtn}
+                    <button class="button-std" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); UI.closeModal(); UI.showHome();">返回主页</button>
+                </div>
+            `;
+            this.showModal(html);
+
+            if (isWin) {
+                let countdown = 8;
+                let interval = setInterval(() => {
+                    countdown--;
+                    let el = document.getElementById('auto-continue-countdown');
+                    if(el) el.innerText = countdown;
+                    if(countdown <= 0) clearInterval(interval);
+                }, 1000);
+
+                autoContinueTimerId = setTimeout(() => {
+                    clearInterval(interval);
+                    UI.closeModal(); Game.continueNext();
+                }, 8000);
+            }
+        },
+
+        openStore() {
+            if (!Game.state.active) return;
+            let p = Game.config.is2P ? UserData.p2 : UserData.p1;
+            let bHint = Game.state.itemsUsed.hint ? 'disabled' : '';
+            let bTime = Game.state.itemsUsed.time || Game.config.t===0 ? 'disabled' : '';
+            let bGuess = Game.state.itemsUsed.guess || Game.config.g===999 ? 'disabled' : '';
+
+            let html = `
+                <h2>道具商店</h2>
+                <div style="text-align:center; margin-bottom:15px; font-weight:bold;">余额: <span style="color:var(--gold)">🪙 ${p.coins}</span></div>
+                <div class="store-item"><div class="store-item-info"><span class="store-item-title">排除一错色</span></div>
+                    <button class="button-std button-gold" ${bHint} onclick="Game.buyItem('hint')">🪙50</button></div>
+                <div class="store-item"><div class="store-item-info"><span class="store-item-title">+60 s</span></div>
+                    <button class="button-std button-gold" ${bTime} onclick="Game.buyItem('time')">🪙30</button></div>
+                <div class="store-item"><div class="store-item-info"><span class="store-item-title">+1步</span></div>
+                    <button class="button-std button-gold" ${bGuess} onclick="Game.buyItem('guess')">🪙40</button></div>
+                <button class="button-std" style="width:100%; margin-top:10px;" onclick="UI.closeModal()">返回</button>
+            `;
+            this.showModal(html);
+        },
+
+        showRules() {
+            let html = `
+                <h2>玩法与计分说明</h2>
+                <div style="font-size:13px; line-height:1.6; text-align:left;">
+                系统从你选定的颜色库中，选择若干颜色作为密码，你需要猜出颜色和顺序。你的每次猜测必须是按顺序填满。<br/><br/>
+                <b>Easy模式：</b><br/>
+                颜色条在对应方块下方直接显示：<br/>
+                <div class="guess-card" style="margin: 5px 0; border:none; box-shadow:none; padding:0; flex-direction:column;">
+                    <span class="container-color-block">
+                        <span class="color-block" style="background-color: #AA00AA; width:20px;height:20px;"></span>
+                        <span class="color-block" style="background-color: #00AAAA; width:20px;height:20px;"></span>
+                        <span class="color-block" style="background-color: #0000AA; width:20px;height:20px;"></span>
+                        <span class="color-block" style="background-color: #AA0000; width:20px;height:20px;"></span>
+                    </span>
+                    <span class="container-color-block" style="margin-top:2px;">
+                        <span class="color-under" style="background-color: #00AA00; width:20px;"></span>
+                        <span class="color-under" style="background-color: #FFAA00; width:20px;"></span>
+                        <span class="color-under" style="background-color: var(--empty-bg); width:20px;"></span>
+                        <span class="color-under" style="background-color: var(--empty-bg); width:20px;"></span>
+                    </span>
+                </div>
+                <span style="color:#00AA00; font-weight:bold;">绿色</span>表示颜色正确且位置正确。<br/>
+                <span style="color:#FFAA00; font-weight:bold;">橙色</span>表示颜色正确但位置不正确。<br/>
+                <span style="color:var(--text-muted); font-weight:bold;">灰色</span>表示颜色不正确。
+                
+                <hr style="border:1px dashed var(--border-color);"/>
+                <b>Hard模式：</b><br/>
+                颜色点在右侧集中显示，顺序是<b>随机打乱</b>的：
+                <div class="guess-card" style="margin: 5px 0; border:none; box-shadow:none; padding:0; flex-direction:row;">
+                    <span class="container-color-block">
+                        <span class="color-block" style="background-color: #AA00AA; width:20px;height:20px;"></span>
+                        <span class="color-block" style="background-color: #00AAAA; width:20px;height:20px;"></span>
+                        <span class="color-block" style="background-color: #0000AA; width:20px;height:20px;"></span>
+                        <span class="color-block" style="background-color: #AA0000; width:20px;height:20px;"></span>
+                    </span>
+                    <span style="display:flex; width:20px; flex-wrap:wrap; margin-left:10px; align-items:center;">
+                        <span class="color-dot dot0" style="background-color: #00AA00; margin:2px;"></span>
+                        <span class="color-dot dot1" style="background-color: #FFAA00; margin:2px;"></span>
+                        <span class="color-dot dot2" style="background-color: var(--empty-bg); margin:2px;"></span>
+                        <span class="color-dot dot3" style="background-color: var(--empty-bg); margin:2px;"></span>
+                    </span>
+                </div>
+                上述例子仅表示你猜对了两个颜色，其中一个位置也猜对了。<b>不代表就是第一格和第二格！必须靠逻辑排查位置。</b>
+                
+                <hr style="border:1px dashed var(--border-color);"/>
+                <b>表现分计算算法：</b><br/>
+                - 基础分 = 槽数 × 色数 × 10<br/>
+                - 步数乘数 = 1 + (设定总步数 - 实际使用步数) × 0.1<br/>
+                - 道具扣除 = 使用排除错色扣除 30%，加时扣除 20%，加步数扣除 20%<br/>
+                - 最终得分 = 基础分 × 步数乘数 × (1 - 道具扣除比率)。失败保底得 10 币。
+                </div>
+                <button class="button-primary" style="margin-top:15px;" onclick="UI.closeModal()">我明白了</button>
+            `;
+            this.showModal(html);
+        },
+
+        showStats(playerKey) {
+            let p = UserData[playerKey];
+            let winRate = p.played > 0 ? Math.round((p.wins / p.played) * 100) : 0;
+            
+            let heatmapHTML = '';
+            let maxVal = Math.max(...p.history, 1);
+            for(let i=0; i<15; i++) { 
+                let width = Math.max((p.history[i]/maxVal)*100, 5);
+                heatmapHTML += `<div class="heatmap-row"><span style="width:30px;">${i+1}步</span><div class="heatmap-bar" style="width:${width}%">${p.history[i]}</div></div>`;
+            }
+
+            let html = `
+                <h2>${this.getPlayerPrefix(playerKey)}${p.name} 统计数据</h2>
+                <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:15px;">
+                    <div><div style="font-size:24px;font-weight:bold">${p.played}</div><div style="font-size:12px;color:var(--text-muted)">场次</div></div>
+                    <div><div style="font-size:24px;font-weight:bold">${winRate}%</div><div style="font-size:12px;color:var(--text-muted)">胜率</div></div>
+                    <div><div style="font-size:24px;font-weight:bold">${p.streak}</div><div style="font-size:12px;color:var(--text-muted)">连胜</div></div>
+                    <div><div style="font-size:24px;font-weight:bold">${p.maxStreak}</div><div style="font-size:12px;color:var(--text-muted)">最大连胜</div></div>
+                </div>
+                <div style="text-align:left; font-weight:bold; font-size:14px;">通关步数:</div><div style="background:var(--bg-color); padding:10px; border-radius:4px; margin-top:5px;">${heatmapHTML}</div>
+                <button class="button-primary" style="margin-top:15px;" onclick="UI.closeModal()">关闭</button>
+            `;
+            this.showModal(html);
+        },
+
+        openVSSetup(cfg) {
+            let vsArr =[];
+            let setter = UserData.turn2P === 0 ? "P1 "+UserData.p1.name : "P2 "+UserData.p2.name;
+            let guesser = UserData.turn2P === 0 ? "P2 "+UserData.p2.name : "P1 "+UserData.p1.name;
+            
+            window.renderVS = () => {
+                let h = `<div class="guess-card"><span class="container-color-block">`;
+                for(let i=0; i<cfg.s; i++) h += `<span class="color-block" style="background-color:${vsArr[i]!==undefined?COLORS[vsArr[i]]:'var(--empty-bg)'}"></span>`;
+                document.getElementById('vs-board').innerHTML = h + `</span></div>`;
+            };
+            
+            window.vsAdd = (idx) => { 
+                if(vsArr.length < cfg.s) { 
+                    if(!cfg.repeat && vsArr.includes(idx)) return; 
+                    vsArr.push(idx); 
+                    renderVS(); 
+                } 
+            };
+            
+            window.vsBk = () => { 
+                if(vsArr.length > 0) { 
+                    vsArr.pop(); 
+                    renderVS(); 
+                } 
+            };
+
+            window.vsStartGuessing = () => {
+                UI.closeModal();
+                Game.start(cfg, [...vsArr]);
+            };
+
+            window.vsSub = () => { 
+                if(vsArr.length === cfg.s) { 
+                    let handoverHtml = `
+                        <h2>移交设备</h2>
+                        <div style="text-align:center; padding: 25px 10px 10px 10px;">
+                            <div style="font-size: 60px; margin-bottom: 15px; animation: pop 1s infinite alternate;">📱</div>
+                            <p style="font-size:18px; font-weight:bold; color:var(--danger); margin-bottom: 5px;">答案已成功设置！</p>
+                            <p style="font-size:14px; color:var(--text-muted); margin-bottom: 25px;">
+                                请 ${setter} 将设备交给 <span style="color:var(--text-color); font-weight:bold;">${guesser}</span>
+                            </p>
+                            <button class="button-primary" style="padding: 15px; font-size: 18px;" onclick="vsStartGuessing()">
+                                我是 ${guesser}，开始游戏
+                            </button>
+                        </div>
+                    `;
+                    document.getElementById('modal-content').innerHTML = handoverHtml;
+                } 
+            };
+
+            let html = `
+                <h2>${setter} 设置阶段</h2>
+                <p style="text-align:center; font-size:14px; color:var(--danger)">请注意遮挡屏幕，不要被 ${guesser} 看到！</p>
+                <div id="vs-board" style="display:flex; justify-content:center; margin:15px 0;"></div>
+                <div style="display: flex; justify-content:center; flex-wrap:wrap; gap:5px; margin-bottom:15px;">
+                    ${COLORS.slice(0, cfg.c).map((c,i) => `<span class="color-block" style="background-color:${c}; cursor:pointer" onclick="vsAdd(${i})"></span>`).join('')}
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="button-std" style="flex:1;" onclick="vsBk()">← 退格</button>
+                    <button class="button-primary" style="flex:1;" onclick="vsSub()">设置答案</button>
+                </div>
+            `;
+            this.showModal(html); 
+            renderVS();
+        }
+    };
+
+    window.onload = () => App.init();
+</script>
+</body>
 </html>
