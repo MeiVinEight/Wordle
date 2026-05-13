@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <title>Wordle NG (Mastermind)</title>
+    <title>Wordle (Mastermind)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     
     <script>
@@ -53,6 +53,8 @@
         .header-bar { width: 100%; background-color: var(--primary); color: #FFF; user-select: none; display: flex; align-items: center; position: relative; flex-shrink: 0;}
         .header-home { justify-content: center; padding: 12px 0; }
         .header-game { justify-content: space-between; padding: 10px 15px; font-size: 16px; font-weight: bold; }
+        
+        #ui-game-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; text-align: center; padding: 0 10px; cursor: pointer; }
         .header-title { margin: 0; font-size: 28px; text-align: center; }
         .header-icon { position: absolute; font-size: 22px; cursor: pointer; transition: 0.2s; color: white; padding: 5px; }
         .header-icon:hover { opacity: 0.7; }
@@ -116,9 +118,12 @@
         .control-btn { background-color: var(--control-bg); color: var(--text-color); line-height: 32px; text-align: center; font-size: 20px; cursor: pointer; user-select: none; }
         .keyboard-area { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
         
+        .key-hint { position: absolute; font-size: 10px; color: rgba(255,255,255,0.7); bottom: 2px; right: 4px; font-weight: bold; pointer-events: none;}
+        
         @media (max-width: 768px) { 
             .color-block {width: 28px; height: 28px;} .color-under{width: 28px;} .control-btn {line-height: 28px;} 
             .game-panel { margin: 5px; } .keyboard-wrapper { padding-bottom: 20px; }
+            .key-hint { display: none; }
         }
 
         /* 模态框与组件 */
@@ -131,9 +136,6 @@
         .emoji-content { white-space: pre-wrap; font-size: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-color); line-height: 1.5; }
 
         .store-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border-color); margin-bottom: 10px; border-radius: 8px; background: var(--bg-color); }
-        
-        .ad-banner { margin: 20px 10px; padding: 15px; background: var(--control-bg); border-radius: 8px; text-align: center; border: 1px dashed var(--text-muted); font-size: 13px; color: var(--text-muted); cursor: pointer; transition: 0.2s;}
-        .ad-banner:hover { opacity: 0.8; border-color: var(--primary); color: var(--primary); }
         
         .heatmap-row { display: flex; align-items: center; font-size: 12px; margin: 4px 0; }
         .heatmap-bar { background: var(--primary); height: 16px; min-width: 5px; margin-left: 8px; border-radius: 2px; text-align: right; color: white; font-size: 10px; padding-right: 4px; line-height: 16px;}
@@ -152,6 +154,9 @@
         .floating-text { position: absolute; left: 50%; top: -10px; transform: translateX(-50%); font-size: 16px; font-weight: bold; pointer-events: none; animation: floatUpFade 1s ease-out forwards; text-shadow: 0 1px 2px rgba(0,0,0,0.5); z-index: 10;}
 
         #fireworks { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; display: none; }
+        
+        @keyframes hint-flash { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } }
+        .hint-flash { animation: hint-flash 0.5s; }
     </style>
 </head>
 <body>
@@ -166,7 +171,7 @@
     <div id="screen-home" class="screen active">
         <div class="header-bar header-home">
             <div class="header-icon icon-left" onclick="UI.showRules()" title="规则说明">ℹ️</div>
-            <h1 class="header-title">WORDLE NG</h1>
+            <h1 class="header-title">WORDLE</h1>
             <div class="header-actions">
                 <a href="https://github.com/MeiVinEight/Wordle" target="_blank" title="GitHub 仓库 - 作者 MeiVinEight">
                     <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
@@ -256,7 +261,7 @@
     <div id="screen-game" class="screen">
         <div class="header-bar header-game">
             <span class="header-icon icon-left" style="position:relative; left:0;" onclick="UI.showHome()">←</span>
-            <span id="ui-game-title" style="flex:1; text-align:center; padding:0 5px;" onclick="Game.cheatClick()"></span>
+            <span id="ui-game-title" onclick="Game.cheatClick()"></span>
             <div class="header-actions" style="position:relative; right:0;">
                 <span class="theme-toggle" onclick="toggleTheme()">◐</span>
             </div>
@@ -284,6 +289,24 @@
 </div>
 
 <script>
+    document.addEventListener('keydown', (e) => {
+        if (Game.state && Game.state.active) {
+            if (e.key === 'Backspace') { e.preventDefault(); Game.inputBackspace(); }
+            else if (e.key === 'Enter') { e.preventDefault(); Game.inputSubmit(); }
+            else if (e.key >= '1' && e.key <= '9') {
+                let idx = parseInt(e.key) - 1;
+                if (idx < Game.config.c) Game.inputColor(idx);
+            }
+        } else if (App.vsSetupActive) {
+            if (e.key === 'Backspace') { e.preventDefault(); window.vsBk(); }
+            else if (e.key === 'Enter') { e.preventDefault(); window.vsSub(); }
+            else if (e.key >= '1' && e.key <= '9') {
+                let idx = parseInt(e.key) - 1;
+                if (idx < App.vsCfg.c) window.vsAdd(idx);
+            }
+        }
+    });
+
     // --- 音效引擎 ---
     const AudioEngine = {
         ctx: null,
@@ -356,6 +379,14 @@
         return x - Math.floor(x);
     }
 
+    function escapeHTML(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>'"]/g, match => {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+            return map[match];
+        });
+    }
+
     // --- 数据模型 ---
     const COLORS = ["#AA0000", "#00AA00", "#0000AA", "#FFAA00", "#AA00AA", "#FF00AA", "#00AAAA", "#00AAFF", "#556B2F"];
     const DIFF_LEVELS =[
@@ -366,16 +397,87 @@
     let autoContinueTimerId = null;
 
     const UserData = {
-        p1: { name: 'Player1', coins: 200, played: 0, wins: 0, streak: 0, maxStreak: 0, classicLevel: 1, history: Array(20).fill(0) },
+        p1: { name: 'Player1', coins: 200, played: 0, wins: 0, streak: 0, maxStreak: 0, classicLevel: 1, history: Array(20).fill(0), bestSpeedrunScore: 0 },
         p2: { name: 'Player2', coins: 200, played: 0, wins: 0, streak: 0, maxStreak: 0, history: Array(20).fill(0) },
         turn2P: 0, dailyPlayed: '',
         load() { let d = localStorage.getItem('mm_data_full_v2'); if(d) Object.assign(this, JSON.parse(d)); },
         save() { localStorage.setItem('mm_data_full_v2', JSON.stringify(this)); }
     };
 
+    // --- Knuth's Minimax Algorithm ---
+    const AI = {
+        // 辅助函数：计算任意两个组合之间的提示 (绿点/橙点)
+        calculateHint(guess, answer) {
+            let greens = 0, oranges = 0;
+            let ansCopy = [...answer], guessCopy = [...guess];
+            for (let i = 0; i < guess.length; i++) {
+                if (guessCopy[i] === ansCopy[i]) {
+                    greens++; ansCopy[i] = -1; guessCopy[i] = -2;
+                }
+            }
+            for (let i = 0; i < guess.length; i++) {
+                if (guessCopy[i] >= 0) {
+                    let idx = ansCopy.indexOf(guessCopy[i]);
+                    if (idx !== -1) { oranges++; ansCopy[idx] = -1; }
+                }
+            }
+            return { greens, oranges };
+        },
+
+        // 主函数：找到最优的下一步猜测
+        findBestGuess(history, config) {
+            // 1. 生成所有可能的密码组合 (S)
+            let allPermutations = [];
+            function generate(prefix, elements) {
+                if (prefix.length === config.s) {
+                    allPermutations.push(prefix); return;
+                }
+                for (let i = 0; i < elements.length; i++) {
+                    let newPrefix = prefix.concat(elements[i]);
+                    let newElements = [...elements];
+                    if (!config.repeat) newElements.splice(i, 1);
+                    generate(newPrefix, newElements);
+                }
+            }
+            generate([], Array.from({length: config.c}, (_,i)=>i));
+            
+            // 2. 根据历史记录，筛选出当前所有还可能的答案
+            let possibleSolutions = allPermutations.filter(solution => {
+                return history.every(pastGuess => {
+                    const hint = this.calculateHint(pastGuess.colors, solution);
+                    return hint.greens === pastGuess.greens && hint.oranges === pastGuess.oranges;
+                });
+            });
+
+            if (possibleSolutions.length <= 1) return possibleSolutions[0] || null;
+
+            // 3. Minimax 算法：从所有可能的猜测中，找到能最大程度缩小答案范围的一个
+            let bestGuess = null, minMaxPartition = Infinity;
+            
+            // 检查所有可能的猜测（不仅限于当前可能的答案）
+            for (const guess of allPermutations) {
+                const partitions = {}; // 存储这个猜测会导致的各种可能结果(分区)
+                for (const solution of possibleSolutions) {
+                    const hint = this.calculateHint(guess, solution);
+                    const key = `${hint.greens},${hint.oranges}`;
+                    partitions[key] = (partitions[key] || 0) + 1;
+                }
+                
+                // 找到这个猜测在最坏情况下，会剩下多少种可能性
+                const maxPartition = Math.max(...Object.values(partitions));
+                
+                if (maxPartition < minMaxPartition) {
+                    minMaxPartition = maxPartition;
+                    bestGuess = guess;
+                }
+            }
+            return bestGuess;
+        }
+    };
+
     // --- 应用控制与设置解析 ---
     const App = {
-        playMode: 1, hintType: 'easy',
+        playMode: 1, hintType: 'easy', vsSetupActive: false, vsCfg: null,
         init() {
             UserData.load();
             document.getElementById('input-p1-name').value = UserData.p1.name;
@@ -397,13 +499,12 @@
                 document.getElementById('btn-classic').disabled = false;
                 document.getElementById('btn-daily').disabled = false;
                 document.getElementById('btn-speedrun').disabled = false;
-                document.getElementById('btn-casual').disabled = false;
             } else {
                 document.getElementById('row-p2').classList.remove('hidden');
                 document.getElementById('btn-classic').disabled = true;
                 document.getElementById('btn-daily').disabled = true;
                 document.getElementById('btn-speedrun').disabled = true;
-                document.getElementById('btn-casual').disabled = true;
+                document.getElementById('btn-casual').disabled = false;
             }
         },
         setHintType(h) {
@@ -470,7 +571,8 @@
         startGame(mode, classicLvl = null) {
             let {c, s, g} = this.getGameConfig();
             let cfg = { 
-                mode: mode, is2P: this.playMode === 2 && mode==='challenge',
+                mode: mode, 
+                is2P: this.playMode === 2 && (mode === 'challenge' || mode === 'casual'),
                 c: c, s: s, g: g, 
                 hintType: this.hintType, repeat: document.getElementById('check-repeat').checked, t: 180
             };
@@ -484,7 +586,6 @@
                 let today = new Date().toISOString().slice(0,10);
                 if (UserData.dailyPlayed === today) return alert("今日挑战已完成，请明天再来！");
                 cfg.is2P = false; 
-                // 利用当前设定生成唯一种子
                 let seedStr = today.replace(/-/g, '') + cfg.c + cfg.s + (cfg.repeat?1:0);
                 let seed = parseInt(seedStr);
                 Game.start(cfg, Game.generateAnswer(cfg, seed));
@@ -493,12 +594,12 @@
                 if(cfg.is2P) UI.openVSSetup(cfg); else Game.start(cfg);
             }
             else if (mode === 'speedrun') {
-                cfg.is2P = false; cfg.g = 999;
+                cfg.is2P = false; cfg.g = 9999;
                 Game.start(cfg, null, 0); 
             }
             else if (mode === 'casual') {
-                cfg.is2P = false; cfg.t = 0; cfg.g = 9999;
-                Game.start(cfg);
+                cfg.t = 0; cfg.g = 9999; 
+                if(cfg.is2P) UI.openVSSetup(cfg); else Game.start(cfg);
             }
         },
         resetGame() {
@@ -525,14 +626,13 @@
             this.state = {
                 active: true, cheatClicks: 0, speedrunWins: speedrunWins,
                 answer: customAnswer || this.generateAnswer(this.config),
-                guesses: [], currentInput:[], timeLeft: this.config.t, 
-                disabledColors:[], itemsUsed: { hint: false, time: false, guess: false }
+                guesses:[], currentInput:[], timeLeft: this.config.t, 
+                disabledColors:[], itemsUsed: { hint: false, time: false, guess: false, ai: false }
             };
             
             UI.showGameScreen();
             this.startTimer();
 
-            // 经典模式 5 的倍数且是乱序时，提供开局初始福利提示
             if (this.config.mode === 'classic' && this.config.classicLevel >= 5 && this.config.classicLevel % 5 === 0 && this.config.hintType === 'hard') {
                 setTimeout(() => {
                     for (let i = 0; i < this.config.s; i++) {
@@ -567,7 +667,7 @@
             this.state.timerId = setInterval(() => {
                 if (!this.state.active) return clearInterval(this.state.timerId);
                 this.state.timeLeft--; UI.renderHeaderState();
-                if (this.state.timeLeft <= 0) this.endGame(false, "⏰ 时间耗尽！");
+                if (this.state.timeLeft <= 0) this.endGame(false, "Time Limit Exceed！");
             }, 1000);
         },
 
@@ -626,12 +726,13 @@
                         AudioEngine.playError();
                         if (greens === 0 && oranges === 0) UI.shakeRow(rowId);
                     }
+                    UI.renderHeaderState();
                     if (this.state.timeLeft === 0) this.endGame(false, `竞速结束！连破 ${this.state.speedrunWins} 局`);
                 }
                 return;
             }
 
-            if (greens === this.config.s) this.endGame(true, "破解成功！");
+            if (greens === this.config.s) this.endGame(true, "获胜");
             else if (this.state.guesses.length >= this.config.g) this.endGame(false, "步数耗尽！");
             else if (greens === 0 && oranges === 0) { 
                 if(!silent) { AudioEngine.playError(); UI.shakeRow(rowId); } 
@@ -640,13 +741,15 @@
         },
 
         buyItem(type) {
-            const costs = { hint: 50, time: 30, guess: 40 };
+            const configAdd = { time: 30, guess: 1 }; 
+
+            const costs = { hint: 50, time: 30, guess: 40, ai: 200 };
             let p = this.config.is2P ? UserData.p2 : UserData.p1;
             if (p.coins < costs[type]) return alert("金币不足！");
             p.coins -= costs[type]; this.state.itemsUsed[type] = true; UserData.save();
 
-            if (type === 'time') this.state.timeLeft += 60;
-            else if (type === 'guess') this.config.g += 3;
+            if (type === 'time') this.state.timeLeft += configAdd.time;
+            else if (type === 'guess') this.config.g += configAdd.guess;
             else if (type === 'hint') {
                 let av =[];
                 for(let i=0; i<this.config.c; i++) {
@@ -656,6 +759,18 @@
                     this.state.disabledColors.push(av[Math.floor(Math.random()*av.length)]);
                     UI.renderKeyboard();
                 }
+            } else if (type === 'ai') {
+                UI.showModal(`<h2>正在运行算法</h2><p style="text-align:center; color:var(--text-muted)">系统正在运行算法进行搜索，请稍后...</p>`);
+                setTimeout(() => {
+                    const bestGuess = AI.findBestGuess(this.state.guesses, this.config);
+                    if (bestGuess) {
+                        UI.closeModal();
+                        UI.highlightHint(bestGuess);
+                    } else {
+                        alert("算法未能找到最优解，可能是局面已明朗。");
+                        UI.closeModal();
+                    }
+                }, 100);
             }
             UI.renderHeaderState(); AudioEngine.playSuccess(); UI.openStore();
         },
@@ -676,25 +791,29 @@
         },
 
         endGame(isWin, title) {
-            this.state.active = false; clearInterval(this.state.timerId);
+            this.state.active = false;
+            clearInterval(this.state.timerId);
             
             let earned = 0;
+            const didWin = isWin;
+
             if(this.state.cheatClicks < 5 && this.config.mode !== 'speedrun') {
                 let baseScore = (this.config.s * this.config.c) * 10;
-                let stepMulti = this.config.g === 999 ? 1 : (1 + (this.config.g - this.state.guesses.length)*0.1);
-                earned = isWin ? Math.floor(baseScore * stepMulti) : 10;
-                if(isWin && this.state.itemsUsed.hint) earned = Math.floor(earned * 0.7);
-                if(isWin && this.state.itemsUsed.time) earned = Math.floor(earned * 0.8);
-                if(isWin && this.state.itemsUsed.guess) earned = Math.floor(earned * 0.8);
+                let stepMulti = this.config.g === 9999 ? 1 : (1 + (this.config.g - this.state.guesses.length) * 0.1);
+                earned = didWin ? Math.floor(baseScore * stepMulti) : 10;
+                if(didWin && this.state.itemsUsed.hint) earned = Math.floor(earned * 0.7);
+                if(didWin && this.state.itemsUsed.time) earned = Math.floor(earned * 0.8);
+                if(didWin && this.state.itemsUsed.guess) earned = Math.floor(earned * 0.8);
+                if(didWin && this.state.itemsUsed.ai) earned = Math.floor(earned * 0.5);
             }
             
             if(this.config.is2P) {
-                if(isWin) { UserData.p2.wins++; UserData.p2.coins += earned; } else { UserData.p1.wins++; UserData.p1.coins += 50; earned=0;}
+                if(didWin) { UserData.p2.wins++; UserData.p2.coins += earned; } else { UserData.p1.wins++; UserData.p1.coins += 50; earned=0;}
                 UserData.p1.played++; UserData.p2.played++;
                 UserData.turn2P = 1 - UserData.turn2P; 
             } else {
                 UserData.p1.played++;
-                if (isWin) {
+                if (didWin) {
                     UserData.p1.wins++; UserData.p1.streak++;
                     if(UserData.p1.streak > UserData.p1.maxStreak) UserData.p1.maxStreak = UserData.p1.streak;
                     let step = Math.min(this.state.guesses.length, 20); UserData.p1.history[step-1]++;
@@ -710,13 +829,21 @@
                 UserData.p1.coins += earned;
             }
 
-            UserData.save(); App.updateHomeUI();
+            if(this.config.mode === 'speedrun') {
+                if(this.state.speedrunWins > UserData.p1.bestSpeedrunScore) {
+                    UserData.p1.bestSpeedrunScore = this.state.speedrunWins;
+                    title = `新纪录！${title}`;
+                }
+            }
 
-            if (isWin) { AudioEngine.playSuccess(); startFireworks(); } else AudioEngine.playLose();
+            UserData.save(); 
+            App.updateHomeUI();
+
+            if (didWin) { AudioEngine.playSuccess(); startFireworks(); } else AudioEngine.playLose();
             
             setTimeout(() => {
-                if(isWin) AudioEngine.playMorseCode(this.state.answer);
-                UI.showResultModal(isWin, title, earned);
+                if(didWin) AudioEngine.playMorseCode(this.state.answer);
+                UI.showResultModal(didWin, title, earned);
             }, 800);
         }
     };
@@ -740,8 +867,9 @@
             
             let pName = Game.config.is2P ? (UserData.turn2P===0 ? this.getPlayerPrefix('p2')+UserData.p2.name : this.getPlayerPrefix('p1')+UserData.p1.name) : this.getPlayerPrefix('p1')+UserData.p1.name;
             let modeMap = {'classic':'闯关', 'daily':'每日挑战', 'challenge':'挑战', 'speedrun':'竞速', 'casual':'休闲'};
-            let modeTitle = Game.config.mode === 'classic' ? `闯关模式 第${Game.config.classicLevel}关` : modeMap[Game.config.mode];
-            document.getElementById('ui-game-title').innerText = `${pName} | ${modeTitle}`;
+            let modeTitle = Game.config.mode === 'classic' ? `第${Game.config.classicLevel}关` : modeMap[Game.config.mode];
+            let repeatStr = Game.config.repeat ? '(可重色)' : '(无重色)';
+            document.getElementById('ui-game-title').innerText = `${pName} | ${modeTitle} ${repeatStr}`;
             
             this.renderKeyboard();
             this.renderBoard();
@@ -751,8 +879,10 @@
             let kb = '';
             for (let i = 0; i < Game.config.c; i++) {
                 let isDis = Game.state.disabledColors.includes(i);
-                let style = `background-color: ${isDis ? 'var(--empty-bg)' : COLORS[i]}; opacity: ${isDis ? '0.3' : '1'}; cursor: ${isDis ? 'not-allowed' : 'pointer'};`;
-                kb += `<span class="color-block" id="key-${i}" style="${style}" onclick="${isDis ? '' : `Game.inputColor(${i})`}"></span>`;
+                let style = `background-color: ${isDis ? 'var(--empty-bg)' : COLORS[i]}; opacity: ${isDis ? '0.3' : '1'}; cursor: ${isDis ? 'not-allowed' : 'pointer'}; position: relative;`;
+                kb += `<span class="color-block" id="key-${i}" style="${style}" onclick="${isDis ? '' : `Game.inputColor(${i})`}">
+                    <span class="key-hint">${i+1}</span>
+                </span>`;
             }
             kb += `<span class="color-block control-btn" onclick="Game.inputBackspace()">&larr;</span><span class="color-block control-btn" onclick="Game.inputSubmit()">&crarr;</span>`;
             document.getElementById('keyboard').innerHTML = kb;
@@ -766,7 +896,7 @@
                 timerEl.innerText = `⏱ ${m}:${s}`;
             } else timerEl.innerText = `⏱ ∞`;
 
-            let left = Game.config.g === 999 ? '∞' : (Game.config.g - Game.state.guesses.length);
+            let left = Game.config.g === 9999 ? '∞' : (Game.config.g - Game.state.guesses.length);
             document.getElementById('ui-guesses').innerText = `👟 ${left}`;
         },
 
@@ -834,7 +964,14 @@
                 setTimeout(() => r.classList.remove('anim-shake'), 400);
             } 
         },
-        triggerTimerPenalty() { let t = document.getElementById('timer-wrapper'); t.classList.remove('timer-penalty'); void t.offsetWidth; t.classList.add('timer-penalty'); },
+        triggerTimerPenalty() { 
+            let t = document.getElementById('timer-wrapper'); 
+            t.classList.remove('timer-penalty'); 
+            void t.offsetWidth; 
+            t.classList.add('timer-penalty'); 
+            if (this._timerPenaltyId) clearTimeout(this._timerPenaltyId);
+            this._timerPenaltyId = setTimeout(() => { if (t) t.classList.remove('timer-penalty'); }, 400);
+        },
         showFloatingText(text, color) {
             let el = document.createElement('div'); el.innerText = text; el.style.color = color; el.className = 'floating-text';
             document.getElementById('timer-wrapper').appendChild(el);
@@ -854,7 +991,7 @@
             if (Game.config.mode !== 'speedrun' && Game.config.mode !== 'casual') paramStr += `·${Game.config.g}步`;
             paramStr += ` | ${Game.config.hintType === 'hard' ? '乱序' : '对位'} | ${Game.config.repeat ? '可重复' : '不重复'}`;
 
-            let emojiText = `🎨 Mastermind - ${modeName}\n${paramStr}\n战绩: ${Game.state.guesses.length}/${Game.config.g===999?'∞':Game.config.g}\n`;
+            let emojiText = `Wordle (Mastermind) - ${modeName}\n${paramStr}\n战绩: ${Game.state.guesses.length}/${Game.config.g===9999?'∞':Game.config.g}\n`;
             Game.state.guesses.forEach(g => {
                 let r = ''; let cG = g.greens, cO = g.oranges;
                 for(let i=0; i<Game.config.s; i++) { if(cG>0){r+='🟩';cG--;} else if(cO>0){r+='🟨';cO--;} else r+='⬛'; }
@@ -862,19 +999,19 @@
             });
 
             let autoHtml = '';
-            if (isWin) {
+            if (isWin && Game.config.mode !== 'speedrun') {
                 autoHtml = `<div style="text-align:center; margin-top:10px; font-size:13px; font-weight:bold; color:var(--text-color);">将在 <span id="auto-continue-countdown" style="color:var(--danger);font-weight:bold;">8</span> 秒后自动进入下一局...</div>`;
             }
 
             let mainBtn = isWin ? 
-                `<button class="button-blue" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); Game.continueNext(); UI.closeModal();">▶ 继续下一局</button>` : 
-                `<button class="button-danger" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); App.resetGame(); UI.closeModal();">🔄 重新开始</button>`;
+                `<button class="button-blue" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); App.resetGame(); UI.closeModal();">下一局</button>` : 
+                `<button class="button-danger" style="flex:1;" onclick="clearTimeout(autoContinueTimerId); App.resetGame(); UI.closeModal();">重新开始</button>`;
 
             let html = `
                 <h2>${title}</h2>
                 <p style="text-align:center; margin:10px 0;">正确答案：</p>
                 <div style="text-align:center">${ansHTML}</div>
-                ${earned > 0 ? `<p style="text-align:center; font-weight:bold; color:var(--gold);">金币 +${earned} 🪙</p>` : ''}
+                ${earned > 0 ? `<p style="text-align:center; font-weight:bold; color:var(--gold);">🪙 +${earned} </p>` : ''}
                 
                 <details>
                     <summary>查看回放</summary>
@@ -890,7 +1027,7 @@
             `;
             this.showModal(html);
 
-            if (isWin) {
+            if (isWin && Game.config.mode !== 'speedrun') {
                 let countdown = 8;
                 let interval = setInterval(() => {
                     countdown--;
@@ -901,7 +1038,7 @@
 
                 autoContinueTimerId = setTimeout(() => {
                     clearInterval(interval);
-                    UI.closeModal(); Game.continueNext();
+                    UI.closeModal(); App.resetGame();
                 }, 8000);
             }
         },
@@ -911,17 +1048,24 @@
             let p = Game.config.is2P ? UserData.p2 : UserData.p1;
             let bHint = Game.state.itemsUsed.hint ? 'disabled' : '';
             let bTime = Game.state.itemsUsed.time || Game.config.t===0 ? 'disabled' : '';
-            let bGuess = Game.state.itemsUsed.guess || Game.config.g===999 ? 'disabled' : '';
-
+            let bGuess = Game.state.itemsUsed.guess || Game.config.g===9999 ? 'disabled' : '';
+            let bAI = Game.state.itemsUsed.ai || Game.config.mode === 'casual' ? 'disabled' : '';
+            
             let html = `
                 <h2>道具商店</h2>
                 <div style="text-align:center; margin-bottom:15px; font-weight:bold;">余额: <span style="color:var(--gold)">🪙 ${p.coins}</span></div>
-                <div class="store-item"><div class="store-item-info"><span class="store-item-title">排除一错色</span></div>
+                <div class="store-item"><div class="store-item-info"><span class="store-item-title">排除一项</span></div>
                     <button class="button-std button-gold" ${bHint} onclick="Game.buyItem('hint')">🪙50</button></div>
-                <div class="store-item"><div class="store-item-info"><span class="store-item-title">+60 s</span></div>
+                <div class="store-item"><div class="store-item-info"><span class="store-item-title">+30s</span></div>
                     <button class="button-std button-gold" ${bTime} onclick="Game.buyItem('time')">🪙30</button></div>
                 <div class="store-item"><div class="store-item-info"><span class="store-item-title">+1步</span></div>
                     <button class="button-std button-gold" ${bGuess} onclick="Game.buyItem('guess')">🪙40</button></div>
+                <div class="store-item" style="border-color: #9b59b6;">
+                    <div class="store-item-info">
+                        <span class="store-item-title" style="color:#9b59b6;">算法提示</span>
+                    </div>
+                    <button class="button-std button-gold" style="background:#9b59b6; color:white;" ${bAI} onclick="Game.buyItem('ai')">🪙200</button>
+                </div>
                 <button class="button-std" style="width:100%; margin-top:10px;" onclick="UI.closeModal()">返回</button>
             `;
             this.showModal(html);
@@ -931,8 +1075,9 @@
             let html = `
                 <h2>玩法与计分说明</h2>
                 <div style="font-size:13px; line-height:1.6; text-align:left;">
-                系统从你选定的颜色库中，选择若干颜色作为密码，你需要猜出颜色和顺序。你的每次猜测必须是按顺序填满。<br/><br/>
-                <b>Easy模式：</b><br/>
+                系统从你选定的颜色库中，选择若干颜色作为密码，你需要猜出颜色和顺序。你的每次猜测必须是按顺序填满。<br/>
+                <b>（PC快捷键：数字键 1-9 快捷选色，Backspace 退格，Enter 提交）</b><br/><br/>
+                <b>Easy：</b><br/>
                 颜色条在对应方块下方直接显示：<br/>
                 <div class="guess-card" style="margin: 5px 0; border:none; box-shadow:none; padding:0; flex-direction:column;">
                     <span class="container-color-block">
@@ -953,7 +1098,7 @@
                 <span style="color:var(--text-muted); font-weight:bold;">灰色</span>表示颜色不正确。
                 
                 <hr style="border:1px dashed var(--border-color);"/>
-                <b>Hard模式：</b><br/>
+                <b>Hard：</b><br/>
                 颜色点在右侧集中显示，顺序是<b>随机打乱</b>的：
                 <div class="guess-card" style="margin: 5px 0; border:none; box-shadow:none; padding:0; flex-direction:row;">
                     <span class="container-color-block">
@@ -975,7 +1120,7 @@
                 <b>表现分计算算法：</b><br/>
                 - 基础分 = 槽数 × 色数 × 10<br/>
                 - 步数乘数 = 1 + (设定总步数 - 实际使用步数) × 0.1<br/>
-                - 道具扣除 = 使用排除错色扣除 30%，加时扣除 20%，加步数扣除 20%<br/>
+                - 道具扣除 = 使用排除错色扣除 30%，加时扣除 20%，加步数扣除 20%，算法提示扣除 50%<br/>
                 - 最终得分 = 基础分 × 步数乘数 × (1 - 道具扣除比率)。失败保底得 10 币。
                 </div>
                 <button class="button-primary" style="margin-top:15px;" onclick="UI.closeModal()">我明白了</button>
@@ -995,7 +1140,7 @@
             }
 
             let html = `
-                <h2>${this.getPlayerPrefix(playerKey)}${p.name} 统计数据</h2>
+                <h2>${this.getPlayerPrefix(playerKey)}${escapeHTML(p.name)} 统计数据</h2>
                 <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:15px;">
                     <div><div style="font-size:24px;font-weight:bold">${p.played}</div><div style="font-size:12px;color:var(--text-muted)">场次</div></div>
                     <div><div style="font-size:24px;font-weight:bold">${winRate}%</div><div style="font-size:12px;color:var(--text-muted)">胜率</div></div>
@@ -1009,38 +1154,46 @@
         },
 
         openVSSetup(cfg) {
+            App.vsCfg = cfg;
+            App.vsSetupActive = true;
             let vsArr =[];
-            let setter = UserData.turn2P === 0 ? "P1 "+UserData.p1.name : "P2 "+UserData.p2.name;
-            let guesser = UserData.turn2P === 0 ? "P2 "+UserData.p2.name : "P1 "+UserData.p1.name;
+            let setter = escapeHTML(UserData.turn2P === 0 ? "P1 "+UserData.p1.name : "P2 "+UserData.p2.name);
+            let guesser = escapeHTML(UserData.turn2P === 0 ? "P2 "+UserData.p2.name : "P1 "+UserData.p1.name);
             
             window.renderVS = () => {
-                let h = `<div class="guess-card"><span class="container-color-block">`;
-                for(let i=0; i<cfg.s; i++) h += `<span class="color-block" style="background-color:${vsArr[i]!==undefined?COLORS[vsArr[i]]:'var(--empty-bg)'}"></span>`;
+                let h = `<div class="guess-card guess-card-current" style="margin-bottom:20px;"><span class="container-color-block">`;
+                for(let i=0; i<cfg.s; i++) {
+                    let c = vsArr[i]!==undefined ? COLORS[vsArr[i]] : 'var(--empty-bg)';
+                    let isLast = i === vsArr.length - 1;
+                    h += `<span class="color-block ${isLast?'anim-pop':''}" style="background-color:${c}"></span>`;
+                }
                 document.getElementById('vs-board').innerHTML = h + `</span></div>`;
             };
             
             window.vsAdd = (idx) => { 
                 if(vsArr.length < cfg.s) { 
                     if(!cfg.repeat && vsArr.includes(idx)) return; 
-                    vsArr.push(idx); 
-                    renderVS(); 
+                    AudioEngine.playClick();
+                    vsArr.push(idx); renderVS(); 
                 } 
             };
             
             window.vsBk = () => { 
                 if(vsArr.length > 0) { 
-                    vsArr.pop(); 
-                    renderVS(); 
+                    AudioEngine.playBackspace();
+                    vsArr.pop(); renderVS(); 
                 } 
             };
 
             window.vsStartGuessing = () => {
+                App.vsSetupActive = false;
                 UI.closeModal();
                 Game.start(cfg, [...vsArr]);
             };
 
             window.vsSub = () => { 
                 if(vsArr.length === cfg.s) { 
+                    AudioEngine.playClick();
                     let handoverHtml = `
                         <h2>移交设备</h2>
                         <div style="text-align:center; padding: 25px 10px 10px 10px;">
@@ -1058,21 +1211,47 @@
                 } 
             };
 
+            let kbHtml = `<div class="keyboard-area">`;
+            for(let i=0; i<cfg.c; i++) {
+                kbHtml += `<span class="color-block" style="background-color:${COLORS[i]}; cursor:pointer; position:relative;" onclick="vsAdd(${i})"><span class="key-hint">${i+1}</span></span>`;
+            }
+            kbHtml += `<span class="color-block control-btn" onclick="vsBk()">&larr;</span><span class="color-block control-btn" onclick="vsSub()">&crarr;</span></div>`;
+
             let html = `
                 <h2>${setter} 设置阶段</h2>
                 <p style="text-align:center; font-size:14px; color:var(--danger)">请注意遮挡屏幕，不要被 ${guesser} 看到！</p>
-                <div id="vs-board" style="display:flex; justify-content:center; margin:15px 0;"></div>
-                <div style="display: flex; justify-content:center; flex-wrap:wrap; gap:5px; margin-bottom:15px;">
-                    ${COLORS.slice(0, cfg.c).map((c,i) => `<span class="color-block" style="background-color:${c}; cursor:pointer" onclick="vsAdd(${i})"></span>`).join('')}
+                <div style="text-align:center; font-size:12px; color:var(--text-muted); margin-bottom:10px;">
+                    ${cfg.repeat ? '允许重复色' : '不允许重复色'}
                 </div>
-                <div style="display:flex; gap:10px;">
-                    <button class="button-std" style="flex:1;" onclick="vsBk()">← 退格</button>
-                    <button class="button-primary" style="flex:1;" onclick="vsSub()">设置答案</button>
+                <div id="vs-board" style="display:flex; justify-content:center;"></div>
+                ${kbHtml}
+                <div style="text-align:center; margin-top:20px;">
+                    <button class="button-std" style="width:100%;" onclick="App.vsSetupActive=false; UI.closeModal()">取消返回</button>
                 </div>
             `;
             this.showModal(html); 
             renderVS();
-        }
+        },
+
+        async highlightHint(sequence) {
+            while(Game.state.currentInput.length > 0) {
+                Game.inputBackspace();
+            }
+            
+            for (const colorIndex of sequence) {
+                const keyElement = document.getElementById(`key-${colorIndex}`);
+                if (keyElement) {
+                    keyElement.classList.add('hint-flash');
+                    
+                    Game.inputColor(colorIndex);
+                    
+                    await new Promise(resolve => setTimeout(() => {
+                        keyElement.classList.remove('hint-flash');
+                        resolve();
+                    }, 400));
+                }
+            }
+        },
     };
 
     window.onload = () => App.init();
