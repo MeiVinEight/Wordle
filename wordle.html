@@ -54,18 +54,35 @@
         .header-home { justify-content: center; padding: 12px 0; }
         .header-game { justify-content: space-between; padding: 10px 15px; font-size: 16px; font-weight: bold; }
         
-        #ui-game-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; text-align: center; padding: 0 10px; cursor: pointer; }
         .header-title { margin: 0; font-size: 28px; text-align: center; }
         .header-icon { position: absolute; font-size: 22px; cursor: pointer; transition: 0.2s; color: white; padding: 5px; }
         .header-icon:hover { opacity: 0.7; }
         .icon-left { left: 15px; } 
         
         .header-actions { position: absolute; right: 15px; display: flex; align-items: center; gap: 15px; }
-        .header-game .header-actions { position: relative; right: 0; }
         .header-actions a { color: white; display: flex; transition: opacity 0.2s; }
         .header-actions a:hover { opacity: 0.7; }
         .header-actions .theme-toggle { font-size: 22px; cursor: pointer; transition: 0.2s; }
         .header-actions .theme-toggle:hover { opacity: 0.7; }
+
+        .header-game .icon-left { position: static; width: 30px; flex-shrink: 0; text-align: left; padding: 5px 0; }
+        .header-game .header-actions { position: static; width: 30px; flex-shrink: 0; justify-content: flex-end; }
+        
+        #ui-game-title {
+            display: flex; align-items: center; justify-content: center;
+            flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; padding: 0 10px; cursor: pointer;
+        }
+        .title-username {
+            display: inline-block;
+            max-width: 80px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
+        }
+        @media (min-width: 768px) { .title-username { max-width: 200px; } /* 电脑端放宽 */ }
+        .player-tag {
+            display: inline-block; padding: 1px 4px; border: 1px solid currentColor; border-radius: 3px;
+            font-size: 10px; line-height: 1.2; margin-left: 4px; vertical-align: middle; flex-shrink: 0;
+        }
+        .title-mode { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* 首页滚动区 */
         #home-scroll-area { flex: 1; overflow-y: auto; padding-bottom: 30px; }
@@ -184,8 +201,8 @@
             <div class="box-card">
                 <!-- 玩家设置区 -->
                 <div class="setting-row">
-                    <span style="font-weight:bold; font-size:14px; width:45px;">P1</span>
-                    <input type="text" id="input-p1-name" maxlength="10" placeholder="P1昵称">
+                    <span style="font-weight:bold; font-size:14px; width:45px;" id="label-p1">玩家</span>
+                    <input type="text" id="input-p1-name" maxlength="10" placeholder="昵称">
                     <button class="dice-btn" onclick="App.randomName('p1')" title="随机">🎲</button>
                     <div class="score-badge" onclick="UI.showStats('p1')">统计</div>
                 </div>
@@ -204,7 +221,6 @@
                     <button class="dice-btn" onclick="App.randomName('p2')" title="随机">🎲</button>
                     <div class="score-badge" onclick="UI.showStats('p2')">统计</div>
                 </div>
-
 
                 <!-- 滑杆控制区 -->
                 <div class="setting-row">
@@ -260,9 +276,9 @@
     <!-- ================= 局内对战页 ================= -->
     <div id="screen-game" class="screen">
         <div class="header-bar header-game">
-            <span class="header-icon icon-left" style="position:relative; left:0;" onclick="UI.showHome()">←</span>
-            <span id="ui-game-title" onclick="Game.cheatClick()"></span>
-            <div class="header-actions" style="position:relative; right:0;">
+            <span class="header-icon icon-left" onclick="UI.requestHome()">←</span>
+            <div id="ui-game-title" onclick="Game.cheatClick()"></div>
+            <div class="header-actions">
                 <span class="theme-toggle" onclick="toggleTheme()">◐</span>
             </div>
         </div>
@@ -304,6 +320,14 @@
                 let idx = parseInt(e.key) - 1;
                 if (idx < App.vsCfg.c) window.vsAdd(idx);
             }
+        }
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+        if ((Game.state && Game.state.active) || App.vsSetupActive) {
+            e.preventDefault();
+            e.returnValue = '当前仍在游戏环节中，刷新或离开将丢失进度，确定要离开吗？';
+            return e.returnValue;
         }
     });
 
@@ -493,11 +517,15 @@
             document.getElementById('mode-2p').className = m===2 ? 'toggle-btn active' : 'toggle-btn';
             
             if(m===1) {
+                document.getElementById('label-p1').innerText = '玩家';
+                document.getElementById('input-p1-name').placeholder = '昵称';
                 document.getElementById('row-p2').classList.add('hidden');
                 document.getElementById('btn-classic').disabled = false;
                 document.getElementById('btn-daily').disabled = false;
                 document.getElementById('btn-speedrun').disabled = false;
             } else {
+                document.getElementById('label-p1').innerText = 'P1';
+                document.getElementById('input-p1-name').placeholder = 'P1昵称';
                 document.getElementById('row-p2').classList.remove('hidden');
                 document.getElementById('btn-classic').disabled = true;
                 document.getElementById('btn-daily').disabled = true;
@@ -870,8 +898,6 @@
 
     // --- UI 渲染总管 ---
     const UI = {
-        getPlayerPrefix(key) { return key === 'p1' ? 'P1 - ' : 'P2 - '; },
-        
         showHome() {
             clearTimeout(autoContinueTimerId); stopFireworks();
             document.getElementById('screen-game').classList.remove('active');
@@ -885,14 +911,60 @@
             document.getElementById('screen-home').classList.remove('active');
             document.getElementById('screen-game').classList.add('active');
             
-            let pName = Game.config.is2P ? (UserData.turn2P===0 ? this.getPlayerPrefix('p2')+UserData.p2.name : this.getPlayerPrefix('p1')+UserData.p1.name) : this.getPlayerPrefix('p1')+UserData.p1.name;
             let modeMap = {'classic':'闯关', 'daily':'每日挑战', 'challenge':'挑战', 'speedrun':'竞速', 'casual':'休闲'};
             let modeTitle = Game.config.mode === 'classic' ? `第${Game.config.classicLevel}关` : modeMap[Game.config.mode];
             let repeatStr = Game.config.repeat ? '(可重色)' : '(无重色)';
-            document.getElementById('ui-game-title').innerText = `${pName} | ${modeTitle} ${repeatStr}`;
+            
+            let titleHtml = '';
+            if (Game.config.is2P) {
+                let pName = UserData.turn2P === 0 ? UserData.p2.name : UserData.p1.name;
+                let pTag = UserData.turn2P === 0 ? 'P2' : 'P1';
+                titleHtml = `
+                    <span class="title-username">${escapeHTML(pName)}</span>
+                    <span class="player-tag">${pTag}</span>
+                    <span style="margin: 0 4px; flex-shrink: 0;">|</span>
+                    <span class="title-mode">${modeTitle} ${repeatStr}</span>
+                `;
+            } else {
+                titleHtml = `<span class="title-mode">${modeTitle} ${repeatStr}</span>`;
+            }
+
+            document.getElementById('ui-game-title').innerHTML = titleHtml;
             
             this.renderKeyboard();
             this.renderBoard();
+        },
+
+        requestHome() {
+            if ((Game.state && Game.state.active) || App.vsSetupActive) {
+                let html = `
+                    <h2>确认返回</h2>
+                    <p style="text-align:center; margin: 20px 0;">当前正在游戏中，返回主页将丢失当前进度，确定要返回吗？<br/>注：若您已经产生金币消费，则无法退还。</p>
+                    <div style="display:flex; gap:10px;">
+                        <button class="button-std" style="flex:1;" onclick="UI.closeModal()">取消</button>
+                        <button class="button-danger" style="flex:1;" onclick="UI.closeModal(); UI.showHome()">确定</button>
+                    </div>
+                `;
+                this.showModal(html);
+            } else {
+                this.showHome();
+            }
+        },
+
+        requestReset() {
+            if (Game.state && Game.state.active) {
+                let html = `
+                    <h2>确认重玩</h2>
+                    <p style="text-align:center; margin: 20px 0;">当前正在游戏中，重新开始将丢失当前进度，确定要重玩吗？<br/>注：若您已经产生金币消费，则无法退还。</p>
+                    <div style="display:flex; gap:10px;">
+                        <button class="button-std" style="flex:1;" onclick="UI.closeModal()">取消</button>
+                        <button class="button-danger" style="flex:1;" onclick="UI.closeModal(); App.resetGame()">确定</button>
+                    </div>
+                `;
+                this.showModal(html);
+            } else {
+                App.resetGame();
+            }
         },
 
         renderKeyboard() {
@@ -1011,7 +1083,7 @@
             if (Game.config.mode !== 'speedrun' && Game.config.mode !== 'casual') paramStr += `·${Game.config.g}步`;
             paramStr += ` | ${Game.config.hintType === 'hard' ? '乱序' : '对位'} | ${Game.config.repeat ? '可重复' : '不重复'}`;
 
-            let emojiText = `Wordle (Mastermind) - ${modeName}\n${paramStr}\n战绩: ${Game.state.guesses.length}/${Game.config.g===9999?'∞':Game.config.g}\n`;
+            let emojiText = `Wordle (Mastermind) - ${modeName}\n${paramStr}\n战绩: ${Game.state.guesses.length}/${Game.config.g>=INFINITE_GUESSES?'∞':Game.config.g}\n`;
             Game.state.guesses.forEach(g => {
                 let r = ''; let cG = g.greens, cO = g.oranges;
                 for(let i=0; i<Game.config.s; i++) { if(cG>0){r+='🟩';cG--;} else if(cO>0){r+='🟨';cO--;} else r+='⬛'; }
@@ -1069,7 +1141,7 @@
             
             let html = `
                 <h2>道具商店</h2>
-                <div style="text-align:center; margin-bottom:15px; font-weight:bold;">余额: <span style="color:var(--gold)">🪙 ${playerRef.coins}</span></div>
+                <div style="text-align:center; margin-bottom:15px; font-weight:bold;">商品一经售出不退不换<br/>余额: <span style="color:var(--gold)">🪙 ${playerRef.coins}</span></div>
             `;
 
             for (let type in ITEMS_CFG) {
@@ -1097,7 +1169,7 @@
                 <div class="store-item" style="${rowStyle}">
                     <div class="store-item-info">
                         <div class="store-item-title" style="${titleStyle}">${item.name}</div>
-                        <div style="font-size:11px; color:var(--danger); margin-top:4px; font-weight:bold;">(金币扣除 ${Math.round(item.penalty * 100)}%)</div>
+                        <div style="font-size:11px; color:var(--danger); margin-top:4px; font-weight:bold;">(通关奖励 -${Math.round(item.penalty * 100)}%)</div>
                     </div>
                     <button class="button-std button-gold" style="${btnStyle}" ${isDisabled ? 'disabled' : ''} onclick="Game.buyItem('${type}')">${btnText}</button>
                 </div>`;
@@ -1111,11 +1183,10 @@
 
         showRules() {
             let html = `
-                <h2>玩法与计分说明</h2>
+                <h2>玩法说明</h2>
                 <div style="font-size:13px; line-height:1.6; text-align:left;">
                 系统从颜色库中随机选择若干个颜色，你需要猜出颜色及顺序。你的每次猜测必须按顺序填满。<br/>
-                给出猜测后你会得到本次猜测的结果：哪些颜色存在，但位置不正确，哪些颜色位置正确。<br/>
-                <b>（PC快捷键：数字键 1-9 快捷选色，Backspace 退格，Enter 提交）</b><br/><br/>
+                给出猜测后你会得到本次猜测的结果：哪些颜色和位置均正确，哪些颜色存在但位置不正确。<br/>
                 <b>Easy：</b><br/>
                 颜色块下方的颜色条表示此颜色的猜测结果：<br/>
                 <div class="guess-card" style="margin: 5px 0; border:none; box-shadow:none; padding:0; flex-direction:column;">
@@ -1180,8 +1251,14 @@
                 heatmapHTML += `<div class="heatmap-row"><span style="width:30px;">${i+1}步</span><div class="heatmap-bar" style="width:${width}%">${p.history[i]}</div></div>`;
             }
 
+            let pNameDisplay = escapeHTML(p.name);
+            if (App.playMode === 2) {
+                let pTag = playerKey === 'p1' ? 'P1' : 'P2';
+                pNameDisplay += `<span class="player-tag">${pTag}</span>`;
+            }
+
             let html = `
-                <h2>${this.getPlayerPrefix(playerKey)}${escapeHTML(p.name)} 统计数据</h2>
+                <h2>${pNameDisplay} 统计数据</h2>
                 <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:15px;">
                     <div><div style="font-size:24px;font-weight:bold">${p.played}</div><div style="font-size:12px;color:var(--text-muted)">场次</div></div>
                     <div><div style="font-size:24px;font-weight:bold">${winRate}%</div><div style="font-size:12px;color:var(--text-muted)">胜率</div></div>
@@ -1195,8 +1272,8 @@
         },
 
         show2PSetupPrompt(cfg) {
-            let p1Name = escapeHTML(UserData.p1.name);
-            let p2Name = escapeHTML(UserData.p2.name);
+            let p1Name = escapeHTML(UserData.p1.name) + '<span class="player-tag">P1</span>';
+            let p2Name = escapeHTML(UserData.p2.name) + '<span class="player-tag">P2</span>';
             
             let p1Style = UserData.turn2P === 0 ? 'button-primary' : 'button-std';
             let p2Style = UserData.turn2P === 1 ? 'button-primary' : 'button-std';
@@ -1212,10 +1289,10 @@
                 <h2>决定先手玩家</h2>
                 <div style="display:flex; flex-direction:column; gap:15px; padding:0 20px;">
                     <button class="button-std ${p1Style}" onclick="select2PRole(0)">
-                        P1 ${p1Name} 先手
+                        ${p1Name} 先手
                     </button>
                     <button class="button-std ${p2Style}" onclick="select2PRole(1)">
-                        P2 ${p2Name} 先手 
+                        ${p2Name} 先手 
                     </button>
                 </div>
                 <button class="button-std" style="width:100%; margin-top:20px;" onclick="UI.closeModal()">取消</button>
@@ -1227,8 +1304,8 @@
             App.vsCfg = cfg;
             App.vsSetupActive = true;
             let vsArr =[];
-            let setter = escapeHTML(UserData.turn2P === 0 ? "P1 "+UserData.p1.name : "P2 "+UserData.p2.name);
-            let guesser = escapeHTML(UserData.turn2P === 0 ? "P2 "+UserData.p2.name : "P1 "+UserData.p1.name);
+            let setter = escapeHTML(UserData.turn2P === 0 ? UserData.p1.name : UserData.p2.name) + `<span class="player-tag">${UserData.turn2P === 0 ? 'P1' : 'P2'}</span>`;
+            let guesser = escapeHTML(UserData.turn2P === 0 ? UserData.p2.name : UserData.p1.name) + `<span class="player-tag">${UserData.turn2P === 0 ? 'P2' : 'P1'}</span>`;
             
             window.renderVS = () => {
                 let h = `<div class="guess-card guess-card-current" style="margin-bottom:20px;"><span class="container-color-block">`;
@@ -1296,7 +1373,7 @@
                 <div id="vs-board" style="display:flex; justify-content:center;"></div>
                 ${kbHtml}
                 <div style="text-align:center; margin-top:20px;">
-                    <button class="button-std" style="width:100%;" onclick="App.vsSetupActive=false; UI.closeModal()">取消</button>
+                    <button class="button-std" style="width:100%;" onclick="UI.requestHome()">取消</button>
                 </div>
             `;
             this.showModal(html); 
