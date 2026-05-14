@@ -77,17 +77,15 @@
             max-width: 80px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
         }
-        @media (min-width: 768px) { .title-username { max-width: 200px; } /* 电脑端放宽 */ }
+        @media (min-width: 768px) { .title-username { max-width: 200px; } }
         .player-tag {
             display: inline-block; padding: 1px 4px; border: 1px solid currentColor; border-radius: 3px;
             font-size: 10px; line-height: 1.2; margin-left: 4px; vertical-align: middle; flex-shrink: 0;
         }
         .title-mode { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* 首页滚动区 */
         #home-scroll-area { flex: 1; overflow-y: auto; padding-bottom: 30px; }
 
-        /* 卡片与按钮 */
         .box-card { border: 1px solid var(--border-color); background-color: var(--card-bg); box-shadow: 0 4px 6px var(--shadow-color); margin: 15px 10px; padding: 15px; border-radius: 8px; }
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .button-std { border: 1px solid var(--border-color); background-color: var(--btn-bg); color: var(--text-color); cursor: pointer; padding: 10px; border-radius: 5px; font-weight: bold; font-family: inherit; font-size: 14px; text-align: center; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center;}
@@ -101,7 +99,6 @@
         .button-gold { background-color: var(--gold); color: #000; border-color: var(--gold); flex-direction: row; }
         button:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(100%); }
 
-        /* 输入与设置区域 */
         .setting-row { display: flex; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
         input[type="text"], input[type="number"] { padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-color); color: var(--text-color); font-family: inherit; flex: 1; min-width: 60px;}
         input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--primary); }
@@ -114,7 +111,6 @@
         
         .custom-param-box { display: flex; gap: 10px; background: var(--control-bg); padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 12px; font-weight: bold; align-items: center; flex-wrap: wrap; justify-content: center;}
 
-        /* 游戏专属布局 */
         .game-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; margin: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); box-shadow: 0 4px 6px var(--shadow-color); }
         .game-header-info { padding: 10px 15px; border-bottom: 1px dashed var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; flex-shrink: 0;}
         #guess-container { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; align-items: center; scroll-behavior: smooth;}
@@ -143,7 +139,6 @@
             .key-hint { display: none; }
         }
 
-        /* 模态框与组件 */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px);}
         .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; width: 92%; max-width: 480px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         .modal-content h2 { margin-top: 0; text-align: center; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;}
@@ -157,7 +152,6 @@
         .heatmap-row { display: flex; align-items: center; font-size: 12px; margin: 4px 0; }
         .heatmap-bar { background: var(--primary); height: 16px; min-width: 5px; margin-left: 8px; border-radius: 2px; text-align: right; color: white; font-size: 10px; padding-right: 4px; line-height: 16px;}
 
-        /* 特效动画 */
         @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.18); } 100% { transform: scale(1); } }
         .anim-pop { animation: pop 0.2s ease-out forwards; }
 
@@ -421,11 +415,22 @@
 
     const INFINITE_GUESSES = 9999;
     const ITEMS_CFG = {
-        hint:  { name: '排除一项',   cost: 50,  penalty: 0.3, color: '', val: 0 },
-        time:  { name: '增加时长(+30s)',     cost: 30,  penalty: 0.2, color: '', val: 30 },
-        guess: { name: '增加步数(+1步)',      cost: 40,  penalty: 0.2, color: '', val: 1 },
-        audio: { name: '摩斯电码', cost: 80,  penalty: 0.2, color: '#3498db', val: 0 },
-        ai:    { name: '算法搜索',   cost: 200, penalty: 0.5, color: '#9b59b6', val: 0 }
+        undo:   { name: '悔棋',      cost: 40,  penalty: 0.1, color: '', val: 0, 
+            description: '撤销上一步猜测', availability: (cfg, state) => state.guesses.length > 0 },
+        time:   { name: '延时',     cost: 30,  penalty: 0.2, color: '', val: 30, 
+            description: '增加30秒游戏时间', availability: (cfg) => cfg.t > 0 },
+        guess:  { name: '增步',      cost: 40,  penalty: 0.2, color: '', val: 1, 
+            description: '增加1次猜测机会', availability: (cfg) => cfg.g < INFINITE_GUESSES },
+        scanner:{ name: '雷达',  cost: 120, penalty: 0.35, color: '#1abc9c', val: 0,
+            description: '探测指定颜色在答案中出现的总次数', availability: (cfg) => cfg.repeat },
+        lens:   { name: '验牌',      cost: 35, penalty: 0.25, color: '#f1c40f', val: 0,
+            description: '验证某个格子是否为某个颜色', availability: () => true },
+        eagle:  { name: '鹰眼',   cost: 75,  penalty: 0.25, color: '#e67e22', val: 0,
+            description: '让下一次猜测获得更精准的位置提示', availability: (cfg) => cfg.hintType === 'hard' },
+        audio: { name: '电报', cost: 85,  penalty: 0.35, color: '#3498db', val: 0, 
+            description: '随机收听一个正确颜色的摩斯电码', availability: () => true },
+        ai:    { name: '搜索',   cost: 200, penalty: 0.5, color: '#9b59b6', val: 0,
+            description: '调用AI算法搜索全局最优解', availability: (cfg) => cfg.mode !== 'casual' }
     };
 
     let autoContinueTimerId = null;
@@ -434,8 +439,8 @@
         p1: { name: 'Player1', coins: 200, played: 0, wins: 0, streak: 0, maxStreak: 0, classicLevel: 1, history: Array(20).fill(0), bestSpeedrunScore: 0 },
         p2: { name: 'Player2', coins: 200, played: 0, wins: 0, streak: 0, maxStreak: 0, history: Array(20).fill(0) },
         turn2P: 0, dailyPlayed: '',
-        load() { let d = localStorage.getItem('mm_data_full_v2'); if(d) Object.assign(this, JSON.parse(d)); },
-        save() { localStorage.setItem('mm_data_full_v2', JSON.stringify(this)); }
+        load() { let d = localStorage.getItem('usr_data'); if(d) Object.assign(this, JSON.parse(d)); },
+        save() { localStorage.setItem('usr_data', JSON.stringify(this)); }
     };
 
     // --- Knuth's Minimax Algorithm ---
@@ -701,7 +706,7 @@
         },
 
         inputColor(cIdx) {
-            if (!this.state.active || this.state.currentInput.length >= this.config.s) return;
+            if (!this.state.active || this.state.currentInput.length >= this.config.s || this.state.lensActive) return;
             if (this.state.disabledColors.includes(cIdx)) return;
             if (!this.config.repeat && this.state.currentInput.includes(cIdx)) {
                 let el = document.getElementById('key-'+cIdx);
@@ -714,16 +719,22 @@
         },
 
         inputBackspace() {
-            if (!this.state.active || this.state.currentInput.length === 0) return;
+            if (!this.state.active || this.state.currentInput.length === 0 || this.state.lensActive) return;
             AudioEngine.playBackspace(); this.state.currentInput.pop(); UI.renderBoard();
         },
 
         inputSubmit(silent = false) {
-            if (!this.state.active || this.state.currentInput.length < this.config.s) return;
+            if (!this.state.active || this.state.currentInput.length < this.config.s || this.state.lensActive) return;
 
             let greens = 0, oranges = 0;
             let ansCopy = [...this.state.answer], guessCopy = [...this.state.currentInput];
             let posDetail = Array(this.config.s).fill(0);
+            
+            const originalHintType = this.config.hintType;
+            if (this.state.eagleEyeActive) {
+                this.config.hintType = 'easy'; 
+                this.state.eagleEyeActive = false; 
+            }
 
             for (let i = 0; i < this.config.s; i++) {
                 if (guessCopy[i] === ansCopy[i]) { greens++; ansCopy[i] = -1; guessCopy[i] = -2; posDetail[i] = 1; }
@@ -736,6 +747,7 @@
             }
 
             this.state.guesses.push({ colors: [...this.state.currentInput], greens, oranges, posDetail });
+            this.config.hintType = originalHintType; 
             this.state.currentInput =[];
             UI.renderBoard(); UI.renderHeaderState();
 
@@ -773,17 +785,25 @@
             let playerRef = this.config.is2P ? (UserData.turn2P === 0 ? UserData.p2 : UserData.p1) : UserData.p1;
             
             if (type === 'audio' && this.state.itemsUsed.audio) {
-                UI.showFloatingText("播放摩斯电码...", "var(--blue)");
-                const randomAnswerColor = this.state.answer[Math.floor(Math.random() * this.state.answer.length)];
-                AudioEngine.playMorseCode([randomAnswerColor]);
+                UI.showFloatingText("重播摩斯电码...", "var(--blue)");
+                AudioEngine.playMorseCode(this.state.answer);
                 return;
             }
 
             if (playerRef.coins < itemCfg.cost) return alert("金币不足！");
-            playerRef.coins -= itemCfg.cost; this.state.itemsUsed[type] = true; UserData.save();
+            
+            if (!this.state.itemsUsed[type]) {
+                playerRef.coins -= itemCfg.cost;
+                this.state.itemsUsed[type] = true;
+                UserData.save();
+            }
 
             if (type === 'time') this.state.timeLeft += itemCfg.val;
             else if (type === 'guess') this.config.g += itemCfg.val;
+            else if (type === 'undo') { this.state.guesses.pop(); UI.renderBoard(); }
+            else if (type === 'eagle') { this.state.eagleEyeActive = true; UI.closeModal(); UI.showFloatingText('鹰眼已激活！', '#e67e22'); return; }
+            else if (type === 'lens') { UI.showLensSelector(); return; }
+            else if (type === 'scanner') { UI.showScannerSelector(); return; }
             else if (type === 'hint') {
                 let av =[];
                 for(let i=0; i<this.config.c; i++) {
@@ -807,7 +827,8 @@
                 }, 100);
             } else if (type === 'audio') {
                 UI.showFloatingText("播放摩斯电码...", "var(--blue)");
-                AudioEngine.playMorseCode(this.state.answer);
+                const randColor = this.state.answer[Math.floor(Math.random() * this.state.answer.length)];
+                AudioEngine.playMorseCode([randColor]);
             }
             
             UI.renderHeaderState(); 
@@ -1001,7 +1022,9 @@
                 for (let i = 0; i < Game.config.s; i++) row += `<span class="color-block" style="background-color: ${COLORS[g.colors[i]]}"></span>`;
                 row += `</span>`;
                 
-                if (Game.config.hintType === 'easy') {
+                let currentHintType = Game.state.guesses[idx - 1] && Game.state.guesses[idx - 1].eagleUsed ? 'easy' : Game.config.hintType;
+                
+                if (Game.config.hintType === 'easy' || (Game.state.itemsUsed.eagle && idx === Game.state.guesses.length - 1)) {
                     row += `<span class="container-color-block" style="margin-top:5px">`;
                     for (let i = 0; i < Game.config.s; i++) {
                         let c = g.posDetail[i] === 1 ? '#00AA00' : (g.posDetail[i] === 2 ? '#FFAA00' : 'var(--empty-bg)');
@@ -1011,7 +1034,7 @@
                 }
                 row += `</span>`;
 
-                if (Game.config.hintType === 'hard') {
+                if (Game.config.hintType === 'hard' && !(Game.state.itemsUsed.eagle && idx === Game.state.guesses.length - 1)) {
                     row += `<span style="display:flex; flex-wrap:wrap; width:20px; align-content:center; justify-content:center; margin-left:10px;">`;
                     let cG = g.greens, cO = g.oranges;
                     for (let i = 0; i < Game.config.s; i++) {
@@ -1082,7 +1105,7 @@
             let modeName = Game.config.mode === 'classic' ? `闯关模式 第${Game.config.classicLevel}关` : Game.config.mode === 'challenge' ? `挑战模式` : Game.config.mode === 'speedrun' ? `竞速模式` : Game.config.mode === 'daily' ? `每日挑战` : `休闲模式`;
             let paramStr = `${Game.config.c}色·${Game.config.s}槽`;
             if (Game.config.mode !== 'speedrun' && Game.config.mode !== 'casual') paramStr += `·${Game.config.g}步`;
-            paramStr += ` | ${Game.config.hintType === 'hard' ? '乱序' : '对位'} | ${Game.config.repeat ? '可重复' : '不重复'}`;
+            paramStr += ` | ${Game.config.hintType === 'hard' ? 'Hard' : 'Easy'} | ${Game.config.repeat ? '含重复色' : '无重复色'}`;
 
             let emojiText = `Wordle (Mastermind) - ${modeName}\n${paramStr}\n战绩: ${Game.state.guesses.length}/${Game.config.g>=INFINITE_GUESSES?'∞':Game.config.g}\n`;
             Game.state.guesses.forEach(g => {
@@ -1140,44 +1163,43 @@
             if (!Game.state.active) return;
             let playerRef = Game.config.is2P ? (UserData.turn2P === 0 ? UserData.p2 : UserData.p1) : UserData.p1;
             
-            let html = `
-                <h2>道具商店</h2>
-                <div style="text-align:center; margin-bottom:15px; font-weight:bold;">商品一经售出不退不换<br/>余额: <span style="color:var(--gold)">🪙 ${playerRef.coins}</span></div>
-            `;
+            let availableItemsHTML = '';
+            let unavailableItemsHTML = '';
 
             for (let type in ITEMS_CFG) {
                 let item = ITEMS_CFG[type];
-                let isDisabled = false;
+                let isGenerallyDisabled = (type === 'time' && Game.config.t === 0) || (type === 'guess' && Game.config.g >= INFINITE_GUESSES) || (type === 'ai' && Game.config.mode === 'casual');
+                let isAvailable = item.availability(Game.config, Game.state) && !Game.state.itemsUsed[type];
+
+                let isDisabledByCost = playerRef.coins < item.cost && !(type === 'audio' && Game.state.itemsUsed.audio);
                 let btnText = `🪙${item.cost}`;
                 let btnStyle = ``;
                 let titleStyle = item.color ? `color:${item.color}; font-weight:bold;` : ``;
                 let rowStyle = item.color ? `border-color:${item.color};` : ``;
 
-                if (item.cost > playerRef.coins && !(type === 'audio' && Game.state.itemsUsed.audio)) isDisabled = true;
-                if (type === 'hint' && Game.state.itemsUsed.hint) isDisabled = true;
-                if (type === 'time' && (Game.state.itemsUsed.time || Game.config.t === 0)) isDisabled = true;
-                if (type === 'guess' && (Game.state.itemsUsed.guess || Game.config.g >= INFINITE_GUESSES)) isDisabled = true;
-                if (type === 'ai' && (Game.state.itemsUsed.ai || Game.config.mode === 'casual')) isDisabled = true;
-                
-                if (type === 'ai' && !isDisabled) {
-                    btnStyle = `background-color:${item.color}; color:white; border-color:${item.color};`;
-                }
-                if (type === 'audio' && Game.state.itemsUsed.audio) {
-                    btnText = '重播';
-                    btnStyle = `background-color:var(--blue); color:white; border-color:var(--blue);`;
-                }
+                if (type === 'ai' && !isGenerallyDisabled) btnStyle = `background-color:${item.color}; color:white; border-color:${item.color};`;
+                if (type === 'audio' && Game.state.itemsUsed.audio) { btnText = '重播'; btnStyle = `background-color:var(--blue); color:white; border-color:var(--blue);`; }
 
-                html += `
+                let itemHTML = `
                 <div class="store-item" style="${rowStyle}">
                     <div class="store-item-info">
                         <div class="store-item-title" style="${titleStyle}">${item.name}</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">${item.description}</div>
                         <div style="font-size:11px; color:var(--danger); margin-top:4px; font-weight:bold;">(通关奖励 -${Math.round(item.penalty * 100)}%)</div>
                     </div>
-                    <button class="button-std button-gold" style="${btnStyle}" ${isDisabled ? 'disabled' : ''} onclick="Game.buyItem('${type}')">${btnText}</button>
+                    <button class="button-std button-gold" style="${btnStyle}" ${isDisabledByCost || isGenerallyDisabled || Game.state.itemsUsed[type] ? 'disabled' : ''} onclick="Game.buyItem('${type}')">${btnText}</button>
                 </div>`;
+                
+                if (isAvailable && !isGenerallyDisabled) availableItemsHTML += itemHTML;
+                else unavailableItemsHTML += itemHTML;
             }
 
-            html += `
+            let html = `
+                <h2>道具商店</h2>
+                <div style="text-align:center; margin-bottom:15px; font-weight:bold;">一次性道具，一经售出不退不换</span></div>
+                <div style="text-align:center; margin-bottom:15px; font-weight:bold;">余额: <span style="color:var(--gold)">🪙 ${playerRef.coins}</span></div>
+                ${availableItemsHTML}
+                ${unavailableItemsHTML ? `<details><summary>不可用或已购买的道具</summary>${unavailableItemsHTML}</details>` : ''}
                 <button class="button-std" style="width:100%; margin-top:10px;" onclick="UI.closeModal()">返回</button>
             `;
             this.showModal(html);
